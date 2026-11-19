@@ -8,7 +8,9 @@ declare global {
 export const isMock = import.meta.env.VITE_MOCK === '1';
 
 export interface Platform {
-  api: Api;
+  /** null = เปิดเว็บโดยไม่มีรหัสกลุ่ม ต้องเลือกกลุ่มก่อน */
+  api: Api | null;
+  getToken: () => string | null;
   inClient: boolean;
   closeWindow(): void;
 }
@@ -28,15 +30,14 @@ function groupKeyFromUrl(): string | null {
 export async function initPlatform(): Promise<Platform> {
   if (isMock) {
     const { mockApi } = await import('./mock');
-    return { api: mockApi, inClient: false, closeWindow: () => {} };
+    return { api: mockApi, getToken: () => null, inClient: false, closeWindow: () => {} };
   }
 
   const cfg = window.APP_CONFIG || {};
   if (cfg.devAuth) {
     // โหมดทดสอบในเครื่อง (เซิร์ฟเวอร์ตั้ง DEV_AUTH_USER_ID)
     const key = groupKeyFromUrl();
-    if (!key) throw new ApiError(400, { code: 'no_group', message: 'ไม่พบรหัสกลุ่ม กรุณาเปิดเว็บจากลิงก์ที่บอทส่งในกลุ่ม LINE' });
-    return { api: createHttpApi(key, () => null), inClient: false, closeWindow: () => {} };
+    return { api: key ? createHttpApi(key, () => null) : null, getToken: () => null, inClient: false, closeWindow: () => {} };
   }
 
   if (!cfg.liffId) throw new ApiError(500, { code: 'config', message: 'ระบบยังไม่ได้ตั้งค่า LIFF ID กรุณาติดต่อผู้ดูแลระบบ' });
@@ -51,9 +52,10 @@ export async function initPlatform(): Promise<Platform> {
     liff.login({ redirectUri: location.href });
     return new Promise<Platform>(() => {}); // กำลังพาไปหน้าเข้าสู่ระบบ
   }
-  if (!key) throw new ApiError(400, { code: 'no_group', message: 'ไม่พบรหัสกลุ่ม กรุณาเปิดเว็บจากลิงก์ที่บอทส่งในกลุ่ม LINE' });
+  const getToken = () => liff.getIDToken();
   return {
-    api: createHttpApi(key, () => liff.getIDToken()),
+    api: key ? createHttpApi(key, getToken) : null,
+    getToken,
     inClient: liff.isInClient(),
     closeWindow: () => liff.closeWindow(),
   };

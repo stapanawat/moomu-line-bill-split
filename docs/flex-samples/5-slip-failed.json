@@ -1,0 +1,153 @@
+{
+  "type": "bubble",
+  "size": "mega",
+  "header": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "ตรวจสอบสลิปไม่ผ่าน",
+        "wrap": true,
+        "color": "#FFFFFFCC",
+        "size": "sm"
+      },
+      {
+        "type": "text",
+        "text": "Bank",
+        "wrap": true,
+        "color": "#FFFFFF",
+        "size": "xl",
+        "weight": "bold",
+        "margin": "sm"
+      },
+      {
+        "type": "text",
+        "text": "ยังไม่ได้บันทึกการชำระเงิน",
+        "wrap": true,
+        "color": "#FFFFFFE6",
+        "size": "sm",
+        "margin": "sm"
+      }
+    ],
+    "backgroundColor": "#C0352B",
+    "paddingAll": "20px"
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "สาเหตุ",
+        "wrap": true,
+        "size": "sm",
+        "color": "#6B7684"
+      },
+      {
+        "type": "text",
+        "text": "ยอดเงินในสลิปไม่ตรงกับยอดที่ค้างชำระ",
+        "wrap": true,
+        "size": "md",
+        "color": "#1B2430",
+        "margin": "sm"
+      },
+      {
+        "type": "separator",
+        "margin": "lg",
+        "color": "#E3E7EC"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "ยอดในสลิป",
+            "wrap": true,
+            "size": "sm",
+            "color": "#6B7684",
+            "flex": 4
+          },
+          {
+            "type": "text",
+            "text": "100.00 บาท",
+            "wrap": true,
+            "size": "sm",
+            "color": "#1B2430",
+            "align": "end",
+            "flex": 6,
+            "weight": "bold"
+          }
+        ],
+        "margin": "lg"
+      },
+      {
+        "type": "text",
+        "text": "ยอดที่ค้างชำระ",
+        "wrap": true,
+        "size": "sm",
+        "color": "#6B7684",
+        "margin": "lg"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "Roast Coffee นิมมาน",
+            "wrap": true,
+            "size": "sm",
+            "color": "#6B7684",
+            "flex": 4
+          },
+          {
+            "type": "text",
+            "text": "142.50 บาท",
+            "wrap": true,
+            "size": "sm",
+            "color": "#1B2430",
+            "align": "end",
+            "flex": 6,
+            "weight": "regular"
+          }
+        ],
+        "margin": "sm"
+      },
+      {
+        "type": "separator",
+        "margin": "lg",
+        "color": "#E3E7EC"
+      },
+      {
+        "type": "text",
+        "text": "กรุณาตรวจสอบแล้วส่งสลิปใหม่อีกครั้ง",
+        "wrap": true,
+        "size": "xs",
+        "color": "#6B7684",
+        "margin": "lg"
+      }
+    ],
+    "paddingAll": "20px"
+  },
+  "footer": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "button",
+        "style": "primary",
+        "color": "#C0352B",
+        "height": "sm",
+        "action": {
+          "type": "uri",
+          "label": "ดู QR / ยอดค้าง",
+          "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY"
+        }
+      }
+    ],
+    "paddingAll": "16px",
+    "paddingTop": "0px"
+  }
+}

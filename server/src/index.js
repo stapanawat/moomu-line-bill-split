@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { config, assertConfig } from './config.js';
 import { verifySignature } from './line.js';
 import { handleEvents } from './bot.js';
-import { routeApi } from './api.js';
+import { routeApi, openEvents } from './api.js';
 import { runReminders, startInternalScheduler } from './reminder.js';
 import { readBody, sendJson, sendError, HttpError } from './http.js';
 
@@ -68,6 +68,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(`window.APP_CONFIG=${JSON.stringify({ liffId: config.line.liffId, devAuth: Boolean(config.devAuthUserId) })};`);
     }
 
+    if (url.pathname === '/api/events' && req.method === 'GET') return await openEvents(req, res, url);
     if (url.pathname.startsWith('/api/')) return sendJson(res, 200, await routeApi(req, url));
 
     if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res, url);

@@ -7,23 +7,43 @@ import { config, liffUrl } from './config.js';
 import { HttpError, readJson, parseDataUrl } from './http.js';
 import { computeShares, normalizePromptPay, round2 } from '../../shared/billing.js';
 import { ensureMember } from './services.js';
+import { publish, subscribe } from './events.js';
 
 // ---------------- auth ----------------
-async function auth(req, url) {
+/** ตรวจตัวตนผู้ใช้จาก LIFF ID token คืน LINE userId */
+async function authUser(req) {
+  if (config.devAuthUserId) return config.devAuthUserId;
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) throw new HttpError(401, 'no_token', 'กรุณาเข้าสู่ระบบด้วย LINE');
+  const info = await line.verifyIdToken(token);
+  if (!info) throw new HttpError(401, 'invalid_token', 'การเข้าสู่ระบบหมดอายุ กรุณาปิดแล้วเปิดเว็บใหม่อีกครั้ง');
+  return info.sub;
+}
+
+/** กลุ่มที่ผู้ใช้เข้าได้ (ผู้ดูแลเห็นทุกกลุ่ม) */
+async function myGroups(req) {
+  const userId = await authUser(req);
+  const isAdmin = config.adminUserIds.includes(userId);
+  const groups = isAdmin ? await db.listActiveGroups() : await db.listGroupsOfUser(userId);
+  return {
+    userId,
+    isAdmin,
+    groups: groups.map((g) => ({ key: g.access_key, name: g.name || 'กลุ่ม LINE' })).sort((a, b) => a.name.localeCompare(b.name, 'th')),
+  };
+}
+
+export async function auth(req, url) {
   const key = url.searchParams.get('g');
   if (!key) throw new HttpError(400, 'no_group', 'ไม่พบรหัสกลุ่ม กรุณาเปิดเว็บจากลิงก์ที่บอทส่งในกลุ่ม LINE');
   const group = await db.getGroupByKey(key);
   if (!group) throw new HttpError(404, 'group_not_found', 'ไม่พบกลุ่มนี้ หรือบอทถูกนำออกจากกลุ่มแล้ว');
 
-  let userId = config.devAuthUserId;
-  if (!userId) {
-    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (!token) throw new HttpError(401, 'no_token', 'กรุณาเข้าสู่ระบบด้วย LINE');
-    const info = await line.verifyIdToken(token);
-    if (!info) throw new HttpError(401, 'invalid_token', 'การเข้าสู่ระบบหมดอายุ กรุณาปิดแล้วเปิดเว็บใหม่อีกครั้ง');
-    userId = info.sub;
-  }
+  const userId = await authUser(req);
   let me = await db.getMember(group.id, userId);
+  if (!me && config.adminUserIds.includes(userId)) {
+    // ผู้ดูแลที่ไม่ได้อยู่ในกลุ่ม: เข้าดูได้ในฐานะผู้ดูแล
+    me = { id: '00000000-0000-0000-0000-000000000000', display_name: 'ผู้ดูแลระบบ', picture_url: null };
+  }
   if (!me) {
     // ลองตรวจกับ LINE ว่าเป็นสมาชิกกลุ่มจริงหรือไม่
     try {
@@ -171,7 +191,7 @@ async function createBill(req, url) {
     total: calc.total,
     receipt_path: receiptPath,
     qr_path: qrPath,
-    created_by: me.id,
+    created_by: me.line_user_id ? me.id : null,
     items: items.map((i) => ({ name: i.name, price: i.price, member_ids: i.memberIds })),
     shares: Object.entries(calc.shares).map(([member_id, amount]) => ({ member_id, amount, paid: member_id === body.payerId })),
   });
@@ -182,12 +202,14 @@ async function createBill(req, url) {
     await db.updateMemberPayment(payer.id, { promptpay_id: pp, bank_account: payer.bank_account, account_name: payer.account_name }).catch(() => {});
   }
 
+  publish(group.id, 'bill_created', { billIds: [billId], message: `${me.display_name} บันทึกบิลใหม่ "${title}"` });
+
   let announced = false;
   if (config.announceNewBill) {
     const byId = new Map(members.map((m) => [m.id, m]));
     const debtors = Object.entries(calc.shares).filter(([id]) => id !== body.payerId).map(([id, amount]) => ({ member: byId.get(id), amount }));
     try {
-      await line.push(group.line_group_id, msg.newBillMessage({ title, bill_date: body.date, total: calc.total }, payer.display_name, debtors, liffUrl(group.access_key)));
+      await line.push(group.line_group_id, msg.newBillMessage({ id: billId, title, bill_date: body.date, total: calc.total }, payer.display_name, debtors, liffUrl(group.access_key)));
       announced = true;
     } catch (e) { console.error('[api] announce failed', e.message); }
   }
@@ -229,6 +251,7 @@ async function summary(req, url) {
 
 async function updatePayment(req, url) {
   const { me } = await auth(req, url);
+  if (!me.line_user_id) throw new HttpError(403, 'admin_guest', 'ผู้ดูแลที่ไม่ได้เป็นสมาชิกของกลุ่มนี้ ไม่สามารถตั้งบัญชีรับเงินได้');
   const body = await readJson(req, 64 * 1024);
   const fields = {};
   const pp = body.promptpayId ? normalizePromptPay(body.promptpayId) : null;
@@ -238,6 +261,7 @@ async function updatePayment(req, url) {
   const name = String(body.accountName || '').trim().slice(0, 100);
   if (Object.keys(fields).length) throw new HttpError(400, 'validation', 'กรุณาตรวจสอบข้อมูลบัญชีรับเงิน', fields);
   const m = await db.updateMemberPayment(me.id, { promptpay_id: pp, bank_account: bank || null, account_name: name || null });
+  publish(me.group_id, 'members', {});
   return { me: memberOut(m) };
 }
 
@@ -263,6 +287,7 @@ async function syncMembers(req, url) {
     }
   }
   const members = await db.listMembers(group.id);
+  publish(group.id, 'members', {});
   return { members: members.map(memberOut), fullList };
 }
 
@@ -286,19 +311,29 @@ async function savePreset(req, url) {
   else if (name.length > 40) fields.name = 'ชื่อชุดรายชื่อยาวเกิน 40 ตัวอักษร';
   if (ids.length < 2) fields.memberIds = 'ชุดรายชื่อต้องมีสมาชิกอย่างน้อย 2 คน';
   if (Object.keys(fields).length) throw new HttpError(400, 'validation', 'ไม่สามารถบันทึกชุดรายชื่อได้', fields);
-  return { preset: presetOut(await db.upsertPreset(group.id, name, ids, me.id)) };
+  const preset = presetOut(await db.upsertPreset(group.id, name, ids, me.id));
+  publish(group.id, 'presets', {});
+  return { preset };
 }
 
 async function removePreset(req, url, id) {
   const { group } = await auth(req, url);
   await db.deletePreset(group.id, id);
+  publish(group.id, 'presets', {});
   return { ok: true };
+}
+
+/** เปิดสตรีมเหตุการณ์ของกลุ่ม (ตอบเองโดยไม่ผ่าน sendJson) */
+export async function openEvents(req, res, url) {
+  const { group } = await auth(req, url);
+  subscribe(group.id, req, res);
 }
 
 /** คืน true ถ้าจัดการ request แล้ว */
 export async function routeApi(req, url) {
   const p = url.pathname;
   const m = req.method;
+  if (m === 'GET' && p === '/api/my-groups') return myGroups(req);
   if (m === 'GET' && p === '/api/session') return session(req, url);
   if (m === 'GET' && p === '/api/bills') return listBills(req, url);
   if (m === 'POST' && p === '/api/bills') return createBill(req, url);

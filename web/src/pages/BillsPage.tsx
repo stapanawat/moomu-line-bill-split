@@ -12,7 +12,7 @@ export function StatusBadge({ b }: { b: Pick<BillSummary, 'status' | 'paidCount'
 }
 
 export default function BillsPage() {
-  const { api, session, member } = useApp();
+  const { api, session, member, liveTick } = useApp();
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
   const [from, setFrom] = useState('');
@@ -20,7 +20,8 @@ export default function BillsPage() {
   const [bills, setBills] = useState<BillSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
-  const [openId, setOpenId] = useState<string | null>(null);
+  // เปิดบิลทันทีเมื่อมาจากปุ่มในการ์ดของบอท (?bill=<id>)
+  const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(location.search).get('bill'));
 
   useEffect(() => { const t = setTimeout(() => setDebounced(q.trim()), 300); return () => clearTimeout(t); }, [q]);
 
@@ -31,7 +32,7 @@ export default function BillsPage() {
       .then((b) => alive && setBills(b))
       .catch((e) => alive && setError(errorText(e)));
     return () => { alive = false; };
-  }, [api, debounced, from, to, reload]);
+  }, [api, debounced, from, to, reload, liveTick]);
 
   const dateError = from && to && from > to ? 'วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด' : undefined;
   const list = bills ?? [];

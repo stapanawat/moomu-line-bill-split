@@ -61,6 +61,11 @@ export async function upsertGroup(lineGroupId, name) {
 export const deactivateGroup = (lineGroupId) =>
   rest(`groups?line_group_id=eq.${q(lineGroupId)}`, { method: 'PATCH', body: { active: false } });
 export const listActiveGroups = () => rest('groups?active=eq.true&select=*');
+/** กลุ่มที่ผู้ใช้คนนี้เป็นสมาชิก */
+export async function listGroupsOfUser(lineUserId) {
+  const rows = await rest(`members?line_user_id=eq.${q(lineUserId)}&select=groups!inner(id,name,access_key,active)&groups.active=eq.true`);
+  return rows.map((r) => r.groups);
+}
 
 // ---------------- members ----------------
 export async function upsertMember(groupId, lineUserId, profile = {}) {

@@ -16,11 +16,12 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
   const me = session.me;
   const [title, setTitle] = useState('');
   const [date, setDate] = useState(todayIso());
-  const [payerId, setPayerId] = useState(me.id);
+  const meIsMember = session.members.some((m) => m.id === me.id);
+  const [payerId, setPayerId] = useState(meIsMember ? me.id : session.members[0]?.id ?? '');
   const [promptpay, setPromptpay] = useState(me.promptpayId || '');
   const [servicePct, setServicePct] = useState('0');
   const [discount, setDiscount] = useState('0');
-  const [people, setPeopleRaw] = useState<string[]>([me.id]);
+  const [people, setPeopleRaw] = useState<string[]>(payerId ? [payerId] : []);
   const setPeople = (ids: string[]) => setPeopleRaw(ids.includes(payerId) ? ids : [payerId, ...ids]);
   const [items, setItems] = useState<ItemDraft[]>([newItem()]);
   const [receipt, setReceipt] = useState<string | null>(null);

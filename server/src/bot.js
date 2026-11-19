@@ -5,7 +5,8 @@ import * as msg from './messages.js';
 import { config, liffUrl } from './config.js';
 import { ensureGroup, ensureMember, groupDues, toReminderInput } from './services.js';
 import { verifySlip, allocate, SlipError } from './slip.js';
-import { round2 } from '../../shared/billing.js';
+import { round2, formatBaht } from '../../shared/billing.js';
+import { publish } from './events.js';
 
 const MENU_WORDS = new Set(['เมนู', 'บิล', 'หารบิล', 'menu', 'เว็บ', 'ลิงก์']);
 const DUES_WORDS = new Set(['ยอดค้าง', 'ค้างจ่าย', 'ใครยังไม่จ่าย']);
@@ -54,6 +55,7 @@ async function handleEvent(ev) {
 
   if (ev.type === 'memberJoined') {
     for (const m of ev.joined?.members || []) if (m.userId) await ensureMember(group, m.userId).catch(() => {});
+    publish(group.id, 'members', {});
     return;
   }
 
@@ -76,6 +78,7 @@ async function handleEvent(ev) {
 
 /** ผู้ส่งรูปมียอดค้าง → ถือว่าอาจเป็นสลิป แล้วตรวจสอบ */
 export async function handleSlip(ev, group, member) {
+  const url = liffUrl(group.access_key);
   const dues = await groupDues(group.id);
   const mine = [];
   for (const x of dues.bills) {
@@ -103,17 +106,17 @@ export async function handleSlip(ev, group, member) {
     if (e instanceof SlipError && e.kind === 'not_slip') return; // รูปทั่วไป ไม่ตอบ
     console.error('[slip] verify error', e.message);
     const kind = e instanceof SlipError ? e.kind : 'provider';
-    return safeReply(ev, msg.paymentFailMessage(member, kind));
+    return safeReply(ev, msg.paymentFailMessage(member, kind, { url }));
   }
 
-  if (!slip.transRef) return safeReply(ev, msg.paymentFailMessage(member, 'not_found'));
+  if (!slip.transRef) return safeReply(ev, msg.paymentFailMessage(member, 'not_found', { url }));
   if (slip.isDuplicate || (await db.getPaymentByRef(slip.transRef))) {
-    return safeReply(ev, msg.paymentFailMessage(member, 'duplicate'));
+    return safeReply(ev, msg.paymentFailMessage(member, 'duplicate', { url }));
   }
 
   const result = allocate(mine, slip, config.slip.overpayTolerance);
   if (!result.ok) {
-    return safeReply(ev, msg.paymentFailMessage(member, result.reason, { slipAmount: slip.amount, dues: mine }));
+    return safeReply(ev, msg.paymentFailMessage(member, result.reason, { slipAmount: slip.amount, dues: mine, url }));
   }
 
   const ext = /png/.test(slip._contentType) ? 'png' : 'jpg';
@@ -132,17 +135,31 @@ export async function handleSlip(ev, group, member) {
       bill_ids: result.billIds,
     });
   } catch (e) {
-    if (/duplicate_slip/.test(e.message)) return safeReply(ev, msg.paymentFailMessage(member, 'duplicate'));
+    if (/duplicate_slip/.test(e.message)) return safeReply(ev, msg.paymentFailMessage(member, 'duplicate', { url }));
     console.error('[slip] save error', e.message);
-    return safeReply(ev, msg.paymentFailMessage(member, 'provider'));
+    return safeReply(ev, msg.paymentFailMessage(member, 'provider', { url }));
   }
 
-  // สรุปผลหลังบันทึก
-  const after = await groupDues(group.id);
-  const paid = result.billIds.map((id) => {
-    const d = mine.find((x) => x.bill_id === id);
-    const still = after.bills.find((x) => x.bill.id === id);
-    return { title: d.title, amount: round2(d.amount), payerName: d.payerName, remaining: still ? still.debtors.map((x) => x.member) : [] };
+  publish(group.id, 'payment', {
+    billIds: result.billIds,
+    memberId: member.id,
+    message: `${member.display_name} ชำระเงิน ${formatBaht(slip.amount)} เรียบร้อยแล้ว`,
   });
-  return safeReply(ev, msg.paymentSuccessMessage(member, slip, paid));
+
+  // สรุปผลหลังบันทึก: สถานะของทุกคนในบิลที่ชำระ
+  const names = new Map((await db.listMembers(group.id)).map((m) => [m.id, m.display_name]));
+  const paid = [];
+  for (const id of result.billIds) {
+    const d = mine.find((x) => x.bill_id === id);
+    const b = await db.getBill(group.id, id).catch(() => null);
+    const shares = (b?.bill_shares || [])
+      .map((s) => ({
+        name: names.get(s.member_id) || 'สมาชิก',
+        amount: Number(s.amount),
+        status: s.member_id === b.payer_member_id ? 'payee' : s.paid_at ? 'paid' : 'due',
+      }))
+      .sort((x, y) => ({ due: 0, paid: 1, payee: 2 }[x.status] - { due: 0, paid: 1, payee: 2 }[y.status]));
+    paid.push({ id, title: d.title, bill_date: d.bill_date, amount: round2(d.amount), payerName: d.payerName, shares });
+  }
+  return safeReply(ev, msg.paymentSuccessMessage(member, slip, paid, url));
 }

@@ -35,6 +35,7 @@ globalThis.fetch = async (url, opts = {}) => {
   const json = (d, status = 200) => new Response(JSON.stringify(d), { status, headers: { 'content-type': 'application/json' } });
   if (u.includes('/rest/v1/bill_shares')) return json(state.shares.filter((s) => !s.paid).map((s) => ({ ...s, paid_at: null, bills: bill })));
   if (u.includes('/rest/v1/members')) return json(members);
+  if (u.includes('/rest/v1/bills')) return json([{ ...bill, bill_items: [], bill_shares: [{ member_id: 'mA', amount: 147.5, paid_at: 'x' }, ...state.shares.map((s) => ({ member_id: s.member_id, amount: s.amount, paid_at: s.paid ? 'x' : null }))] }]);
   if (u.includes('/rest/v1/payments')) return json(state.payments.filter((p) => u.includes(p.trans_ref)));
   if (u.includes('/rest/v1/rpc/record_payment')) {
     const p = JSON.parse(opts.body).p;
@@ -45,7 +46,7 @@ globalThis.fetch = async (url, opts = {}) => {
   if (u.includes('/storage/v1/object/')) return json({ Key: 'x' });
   if (u.includes('api-data.line.me')) return new Response(new Uint8Array([1, 2, 3]), { headers: { 'content-type': 'image/jpeg' } });
   if (u.includes('easyslip')) return json({ success: true, data: { isDuplicate: false, rawSlip: state.slip } });
-  if (u.includes('/message/reply')) { state.replies.push(JSON.parse(opts.body).messages[0]); return json({}); }
+  if (u.includes('/message/reply')) { state.replies.push(JSON.parse(opts.body).messages); return json({}); }
   throw new Error('unexpected fetch ' + u);
 };
 
@@ -55,26 +56,28 @@ test('สลิปถูกต้อง: บันทึกการชำระ
   await handleSlip(ev('UB'), group, members[1]);
   assert.equal(state.payments.length, 1);
   assert.deepEqual(state.payments[0].bill_ids, ['b1']);
-  const r = state.replies[0];
-  assert.equal(r.type, 'textV2');
-  assert.match(r.text, /ยืนยันการชำระเงิน/);
-  assert.match(r.text, /ผู้ที่ยังไม่ชำระ/);
-  const ids = Object.values(r.substitution).map((s) => s.mentionee.userId);
-  assert.deepEqual(ids, ['UB', 'UC']);
+  const [t, f] = state.replies[0];
+  assert.equal(t.type, 'textV2');
+  assert.deepEqual(Object.values(t.substitution).map((s) => s.mentionee.userId), ['UB']);
+  assert.equal(f.type, 'flex');
+  const s = JSON.stringify(f);
+  assert.match(s, /ยืนยันการชำระเงิน/);
+  assert.match(s, /ชำระแล้ว 1\/2 คน/);
+  assert.match(s, /bill=b1/);
 });
 
 test('ยอดไม่ตรง: ไม่บันทึก และแจ้งสาเหตุ', async () => {
   state.slip.amount.amount = 100;
   await handleSlip(ev('UB'), group, members[1]);
   assert.equal(state.payments.length, 0);
-  assert.match(state.replies[0].text, /ยอดเงินในสลิปไม่ตรง/);
+  assert.match(JSON.stringify(state.replies[0]), /ยอดเงินในสลิปไม่ตรง/);
 });
 
 test('ผู้รับผิดคน: ไม่บันทึก', async () => {
   state.slip.receiver.account.proxy.account = 'xxx-xxx-9999';
   await handleSlip(ev('UB'), group, members[1]);
   assert.equal(state.payments.length, 0);
-  assert.match(state.replies[0].text, /บัญชีผู้รับเงินในสลิปไม่ตรง/);
+  assert.match(JSON.stringify(state.replies[0]), /บัญชีผู้รับเงินในสลิปไม่ตรง/);
 });
 
 test('สลิปซ้ำ: แจ้งว่าใช้แล้ว', async () => {
@@ -82,7 +85,7 @@ test('สลิปซ้ำ: แจ้งว่าใช้แล้ว', async 
   state.shares[0].paid = false; // สมมติยังค้างอีกบิล
   await handleSlip(ev('UB'), group, members[1]);
   assert.equal(state.payments.length, 1);
-  assert.match(state.replies[1].text, /ถูกใช้ยืนยันการชำระไปแล้ว/);
+  assert.match(JSON.stringify(state.replies[1]), /ถูกใช้ยืนยันการชำระไปแล้ว/);
 });
 
 test('ผู้ส่งไม่มียอดค้าง: ไม่ตรวจและไม่ตอบ', async () => {
@@ -93,5 +96,5 @@ test('ผู้ส่งไม่มียอดค้าง: ไม่ตรว
 test('จ่ายคนสุดท้าย: แจ้งว่าปิดรายการ', async () => {
   state.shares[1].paid = true;
   await handleSlip(ev('UB'), group, members[1]);
-  assert.match(state.replies[0].text, /ชำระครบแล้ว/);
+  assert.match(JSON.stringify(state.replies[0]), /ชำระครบแล้ว/);
 });

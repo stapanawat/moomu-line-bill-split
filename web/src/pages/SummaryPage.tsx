@@ -10,7 +10,7 @@ type View = 'person' | 'store';
 const storeKey = (t: string) => t.trim().toLowerCase().replace(/\s+/g, ' ');
 
 export default function SummaryPage() {
-  const { api, session, member } = useApp();
+  const { api, session, member, liveTick } = useApp();
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [text, setText] = useState('');
@@ -25,7 +25,7 @@ export default function SummaryPage() {
     setError(null);
     api.summary({ from, to }).then((d) => alive && setData(d)).catch((e) => alive && setError(errorText(e)));
     return () => { alive = false; };
-  }, [api, from, to, reload]);
+  }, [api, from, to, reload, liveTick]);
 
   const name = (id: string) => member(id)?.name ?? 'ไม่ทราบชื่อ';
   const t = text.trim().toLowerCase();

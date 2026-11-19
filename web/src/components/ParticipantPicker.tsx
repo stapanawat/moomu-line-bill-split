@@ -10,7 +10,7 @@ interface Recent { key: string; label: string; memberIds: string[] }
 export default function ParticipantPicker({ people, setPeople, payerId, error }: {
   people: string[]; setPeople: (ids: string[]) => void; payerId: string; error?: string;
 }) {
-  const { api, session, setMembers } = useApp();
+  const { api, session, setMembers, liveTick } = useApp();
   const known = new Set(session.members.map((m) => m.id));
   const [presets, setPresets] = useState<MemberPreset[]>([]);
   const [recent, setRecent] = useState<Recent[]>([]);
@@ -43,7 +43,7 @@ export default function ParticipantPicker({ people, setPeople, payerId, error }:
       })
       .catch((e) => alive && setLoadError(errorText(e)));
     return () => { alive = false; };
-  }, [api]);
+  }, [api, liveTick]);
 
   const apply = (ids: string[], label: string) => {
     const valid = ids.filter((id) => known.has(id));

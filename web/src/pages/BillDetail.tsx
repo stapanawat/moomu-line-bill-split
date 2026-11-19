@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { promptPayPayload } from '../../../shared/billing.js';
 import { useApp, errorText } from '../context';
@@ -10,7 +10,8 @@ import { StatusBadge } from './BillsPage';
 type View = 'qr' | 'receipt' | `slip:${string}`;
 
 export default function BillDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const { api, session, member } = useApp();
+  const { api, session, member, liveTick } = useApp();
+  const first = useRef(true);
   const [bill, setBill] = useState<BillDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -23,13 +24,19 @@ export default function BillDetailModal({ id, onClose }: { id: string; onClose: 
     api.getBill(id).then((b) => {
       if (!alive) return;
       setBill(b);
+      if (!first.current) {
+        // อัปเดตจากเหตุการณ์: ถ้าคนที่กำลังดู QR จ่ายแล้ว ให้เลื่อนไปคนถัดไป
+        setTarget((t) => (b.shares.some((s) => s.memberId === t && !s.paidAt) ? t : b.shares.find((s) => !s.isPayer && !s.paidAt)?.memberId || ''));
+        return;
+      }
+      first.current = false;
       const mine = b.shares.find((s) => s.memberId === session.me.id && !s.isPayer && !s.paidAt);
       const firstDue = b.shares.find((s) => !s.isPayer && !s.paidAt);
       setTarget((mine || firstDue)?.memberId || '');
       setView(mine ? 'qr' : b.receiptUrl ? 'receipt' : 'qr');
     }).catch((e) => alive && setError(errorText(e)));
     return () => { alive = false; };
-  }, [api, id, session.me.id, reload]);
+  }, [api, id, session.me.id, reload, liveTick]);
 
   return (
     <Modal title={bill?.title || 'รายละเอียดบิล'} onClose={onClose} wide>

@@ -1,3 +1,4 @@
+import { connectLive, type LiveEvent, type LiveStatus } from './live';
 import type { ApiErrorBody, BillDetail, BillSummary, Member, MemberPreset, NewBillInput, Session, Summary } from '../types';
 
 export class ApiError extends Error {
@@ -23,6 +24,8 @@ export interface Api {
   listPresets(): Promise<MemberPreset[]>;
   savePreset(p: { name: string; memberIds: string[] }): Promise<MemberPreset>;
   deletePreset(id: string): Promise<void>;
+  /** รับเหตุการณ์เรียลไทม์ คืนฟังก์ชันสำหรับยกเลิก */
+  subscribe(onEvent: (e: LiveEvent) => void, onStatus: (s: LiveStatus) => void): () => void;
 }
 
 const NETWORK_ERROR: ApiErrorBody = {
@@ -66,5 +69,21 @@ export function createHttpApi(groupKey: string, getToken: () => string | null): 
     listPresets: async () => (await call<{ presets: MemberPreset[] }>('GET', '/api/presets')).presets,
     savePreset: async (p) => (await call<{ preset: MemberPreset }>('POST', '/api/presets', {}, p)).preset,
     deletePreset: async (id) => { await call('DELETE', `/api/presets/${id}`); },
+    subscribe: (onEvent, onStatus) => connectLive(groupKey, getToken, onEvent, onStatus),
   };
+}
+
+export interface MyGroups { userId: string; isAdmin: boolean; groups: { key: string; name: string }[] }
+
+/** กลุ่มทั้งหมดที่ผู้ใช้เข้าได้ (ใช้เมื่อเปิดเว็บโดยไม่มีรหัสกลุ่ม) */
+export async function fetchMyGroups(token: string | null): Promise<MyGroups> {
+  let res: Response;
+  try {
+    res = await fetch('/api/my-groups', { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  } catch {
+    throw new ApiError(0, NETWORK_ERROR);
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, data?.error ?? { code: 'server_error', message: `ระบบขัดข้อง (รหัส ${res.status}) กรุณาลองใหม่อีกครั้ง` });
+  return data as MyGroups;
 }

@@ -37,6 +37,8 @@ export const config = {
   },
 
   announceNewBill: bool(env.ANNOUNCE_NEW_BILL, true),
+  // LINE userId ของผู้ดูแล (คั่นด้วยจุลภาค) เห็นทุกกลุ่มที่บอทอยู่
+  adminUserIds: (env.ADMIN_LINE_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
   devAuthUserId: env.NODE_ENV === 'production' ? '' : env.DEV_AUTH_USER_ID || '',
 };
 

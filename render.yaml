@@ -3,7 +3,7 @@ services:
   - type: web
     name: line-bill-split
     runtime: docker
-    plan: starter            # แผนที่ไม่หลับ (แผนฟรีจะหลับ ทำให้บอทตอบสลิปไม่ทัน)
+    plan: free               # แผนฟรี: ต้องตั้ง cron-job.org เรียก /healthz ทุก 10 นาทีกันหลับ
     region: singapore
     dockerfilePath: ./Dockerfile
     healthCheckPath: /healthz
@@ -24,7 +24,7 @@ services:
       - key: SUPABASE_BUCKET
         value: bill-files
       - key: SLIP_PROVIDER
-        value: easyslip
+        value: slipok
       - key: CRON_SECRET
         generateValue: true
       - key: LINE_CHANNEL_SECRET
@@ -39,5 +39,7 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
-      - key: EASYSLIP_API_KEY
+      - key: SLIPOK_BRANCH_ID
+        sync: false
+      - key: SLIPOK_API_KEY
         sync: false

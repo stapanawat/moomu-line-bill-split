@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { computeShares, promptPayPayload, crc16, normalizePromptPay } from '../../shared/billing.js';
 import { matchMasked, matchName, receiverStatus, allocate, normalize } from '../src/slip.js';
 import { verifySignature, textV2, escV2 } from '../src/line.js';
-import { reminderMessages, paymentFailMessage, newBillMessage } from '../src/messages.js';
+import { reminderMessages, paymentFailMessage, newBillMessage, paymentSuccessMessage, welcomeMessage } from '../src/messages.js';
 
 test('computeShares: หารรายการ + ค่าบริการ + ส่วนลด และผลรวมเท่ายอดบิล', () => {
   const r = computeShares([
@@ -113,28 +113,55 @@ test('textV2: แท็กและหนีวงเล็บปีกกา', 
 });
 
 const mem = (i) => ({ line_user_id: 'U' + i, display_name: 'คน' + i });
+const noEmoji = (o) => assert.doesNotMatch(JSON.stringify(o), /\p{Extended_Pictographic}/u);
 
-test('reminderMessages: มีแท็กทุกคนที่ค้าง และไม่มีอีโมจิ', () => {
+/** ตรวจโครงสร้าง Flex ตามข้อกำหนดของ LINE ที่พบบ่อย */
+function checkFlex(m) {
+  assert.equal(m.type, 'flex');
+  assert.ok(m.altText && m.altText.length <= 400, 'altText');
+  const size = Buffer.byteLength(JSON.stringify(m.contents));
+  assert.ok(size < (m.contents.type === 'carousel' ? 50000 : 30000), 'size ' + size);
+  if (m.contents.type === 'carousel') assert.ok(m.contents.contents.length <= 12);
+  (function walk(n) {
+    if (Array.isArray(n)) return n.forEach(walk);
+    if (!n || typeof n !== 'object') return;
+    if (n.type === 'text') assert.ok(typeof n.text === 'string' && n.text.trim().length > 0, 'empty text');
+    if (n.type === 'button') assert.ok(n.action.label.length <= 20, 'label too long: ' + n.action.label);
+    if (n.type === 'box') assert.ok(Array.isArray(n.contents));
+    Object.values(n).forEach(walk);
+  })(m.contents);
+}
+
+test('reminderMessages: แท็กทุกคนที่ค้าง + การ์ดสรุป', () => {
   const msgs = reminderMessages([
-    { title: 'Roast Coffee', bill_date: '2026-11-19', payerName: 'มายด์', debtors: [{ member: mem(1), amount: 162.5 }, { member: mem(2), amount: 120 }] },
+    { id: 'b1', title: 'Roast Coffee', bill_date: '2026-11-19', payerName: 'มายด์', debtors: [{ member: mem(1), amount: 162.5 }, { member: mem(2), amount: 120 }] },
   ], 'https://liff.line.me/x?g=k', '2026-11-19T11:00:00Z');
-  assert.equal(msgs.length, 1);
+  assert.equal(msgs[0].type, 'textV2');
   assert.equal(Object.keys(msgs[0].substitution).length, 2);
-  assert.match(msgs[0].text, /282\.50 บาท/);
-  assert.doesNotMatch(msgs[0].text, /\p{Extended_Pictographic}/u);
+  const f = msgs.at(-1);
+  checkFlex(f);
+  assert.match(f.altText, /282\.50/);
+  assert.match(JSON.stringify(f), /bill=b1/);
+  noEmoji(msgs);
 });
 
-test('reminderMessages: แบ่งข้อความเมื่อคนเยอะ', () => {
-  const g = Array.from({ length: 6 }, (_, b) => ({ title: 'บิล' + b, bill_date: '2026-11-19', payerName: 'ก', debtors: Array.from({ length: 6 }, (_, i) => ({ member: mem(b * 10 + i), amount: 10 })) }));
+test('reminderMessages: คนเยอะแบ่งข้อความแท็ก และไม่เกิน 5 ข้อความ', () => {
+  const g = Array.from({ length: 14 }, (_, b) => ({ id: 'b' + b, title: 'บิล' + b, bill_date: '2026-11-19', payerName: 'ก', debtors: Array.from({ length: 6 }, (_, i) => ({ member: mem(b * 10 + i), amount: 10 })) }));
   const msgs = reminderMessages(g, 'u');
-  assert.ok(msgs.length >= 2);
-  assert.ok(msgs.every((m) => Object.keys(m.substitution || {}).length <= 20));
+  assert.ok(msgs.length <= 5);
+  const texts = msgs.filter((m) => m.type === 'textV2');
+  assert.ok(texts.length >= 2);
+  assert.ok(texts.every((m) => Object.keys(m.substitution).length <= 20));
+  checkFlex(msgs.at(-1));
 });
 
-test('ข้อความอื่น ๆ ไม่มีอีโมจิ', () => {
+test('การ์ดอื่น ๆ ถูกต้องตามข้อกำหนด และไม่มีอีโมจิ', () => {
   const all = [
-    paymentFailMessage(mem(1), 'amount', { slipAmount: 90, dues: [{ title: 'A', amount: 100 }] }),
-    newBillMessage({ title: 'A', bill_date: '2026-11-19', total: 300 }, 'มายด์', [{ member: mem(1), amount: 100 }], 'u'),
+    ...paymentFailMessage(mem(1), 'amount', { slipAmount: 90, dues: [{ title: 'A', amount: 100 }], url: 'https://x' }),
+    ...newBillMessage({ id: 'b1', title: 'ร้าน {ทดสอบ}', bill_date: '2026-11-19', total: 300 }, 'มายด์', [{ member: mem(1), amount: 100 }, { member: mem(2), amount: 100 }], 'https://x?g=1'),
+    ...paymentSuccessMessage(mem(1), { amount: 100, transRef: 'R1' }, [{ id: 'b1', title: 'A', bill_date: '2026-11-19', amount: 100, payerName: 'มายด์', shares: [{ name: 'คน1', amount: 100, status: 'paid' }, { name: 'มายด์', amount: 100, status: 'payee' }] }], 'https://x?g=1'),
+    welcomeMessage('https://x'),
   ];
-  for (const m of all) assert.doesNotMatch(m.text, /\p{Extended_Pictographic}/u);
+  for (const m of all) { if (m.type === 'flex') checkFlex(m); noEmoji(m); }
+  assert.equal(all[0].type, 'textV2');
 });

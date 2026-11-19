@@ -8,6 +8,8 @@ export interface AppCtx {
   member: (id: string) => Member | undefined;
   setMembers: (m: Member[]) => void;
   setMe: (m: Member) => void;
+  /** เพิ่มขึ้นทุกครั้งที่มีเหตุการณ์จากเซิร์ฟเวอร์ ใช้เป็นตัวกระตุ้นให้หน้าโหลดข้อมูลใหม่ */
+  liveTick: number;
 }
 
 export const Ctx = createContext<AppCtx | null>(null);

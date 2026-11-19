@@ -1,0 +1,178 @@
+{
+  "type": "bubble",
+  "size": "mega",
+  "header": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "ระบบหารบิล",
+        "wrap": true,
+        "color": "#FFFFFFCC",
+        "size": "sm"
+      },
+      {
+        "type": "text",
+        "text": "พร้อมใช้งานในกลุ่มนี้",
+        "wrap": true,
+        "color": "#FFFFFF",
+        "size": "xl",
+        "weight": "bold",
+        "margin": "sm"
+      },
+      {
+        "type": "text",
+        "text": "บันทึกบิล ชำระผ่าน QR ตรวจสลิปอัตโนมัติ",
+        "wrap": true,
+        "color": "#FFFFFFE6",
+        "size": "sm",
+        "margin": "sm"
+      }
+    ],
+    "backgroundColor": "#06C755",
+    "paddingAll": "20px"
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "ขั้นตอนการใช้งาน",
+        "wrap": true,
+        "size": "sm",
+        "color": "#6B7684"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "1",
+            "wrap": true,
+            "size": "sm",
+            "color": "#06C755",
+            "weight": "bold",
+            "flex": 1
+          },
+          {
+            "type": "text",
+            "text": "สมาชิกทุกคนพิมพ์ข้อความใดก็ได้ในกลุ่มหนึ่งครั้ง เพื่อให้ระบบรู้จัก",
+            "wrap": true,
+            "size": "sm",
+            "color": "#1B2430",
+            "flex": 12
+          }
+        ],
+        "margin": "md"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "2",
+            "wrap": true,
+            "size": "sm",
+            "color": "#06C755",
+            "weight": "bold",
+            "flex": 1
+          },
+          {
+            "type": "text",
+            "text": "ผู้ที่ชำระบิลไปก่อน เปิดเว็บเพื่อบันทึกบิลและแนบใบเสร็จ",
+            "wrap": true,
+            "size": "sm",
+            "color": "#1B2430",
+            "flex": 12
+          }
+        ],
+        "margin": "md"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "3",
+            "wrap": true,
+            "size": "sm",
+            "color": "#06C755",
+            "weight": "bold",
+            "flex": 1
+          },
+          {
+            "type": "text",
+            "text": "สมาชิกสแกน QR ในเว็บเพื่อโอนเงิน แล้วส่งรูปสลิปในกลุ่ม",
+            "wrap": true,
+            "size": "sm",
+            "color": "#1B2430",
+            "flex": 12
+          }
+        ],
+        "margin": "md"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "4",
+            "wrap": true,
+            "size": "sm",
+            "color": "#06C755",
+            "weight": "bold",
+            "flex": 1
+          },
+          {
+            "type": "text",
+            "text": "ระบบแจ้งเตือนผู้ที่ยังไม่ชำระทุกวัน เวลา 18:00 น.",
+            "wrap": true,
+            "size": "sm",
+            "color": "#1B2430",
+            "flex": 12
+          }
+        ],
+        "margin": "md"
+      },
+      {
+        "type": "separator",
+        "margin": "lg",
+        "color": "#E3E7EC"
+      },
+      {
+        "type": "text",
+        "text": "พิมพ์ \"เมนู\" เพื่อขอลิงก์ หรือ \"ยอดค้าง\" เพื่อดูยอดคงค้าง",
+        "wrap": true,
+        "size": "xs",
+        "color": "#6B7684",
+        "margin": "lg"
+      }
+    ],
+    "paddingAll": "20px"
+  },
+  "footer": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "button",
+        "style": "primary",
+        "color": "#06C755",
+        "height": "sm",
+        "action": {
+          "type": "uri",
+          "label": "เปิดเว็บหารบิล",
+          "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY"
+        }
+      }
+    ],
+    "paddingAll": "16px",
+    "paddingTop": "0px"
+  }
+}

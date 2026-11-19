@@ -3,6 +3,7 @@
 import { computeShares, normalizePromptPay, round2 } from '../../../shared/billing.js';
 import { ApiError, type Api } from './api';
 import type { BillDetail, Member, MemberPreset, NewBillInput } from '../types';
+import type { LiveEvent } from './live';
 
 const wait = (ms = 350) => new Promise((r) => setTimeout(r, ms));
 const mockError = new URLSearchParams(location.search).get('mockError');
@@ -33,6 +34,23 @@ const ME = 'm3';
 const byId = (id: string) => members.find((m) => m.id === id)!;
 
 let seq = 10;
+const listeners = new Set<(e: LiveEvent) => void>();
+const emit = (e: LiveEvent) => listeners.forEach((l) => l({ ...e, at: Date.now() }));
+
+/** ใช้ทดสอบในโหมดตัวอย่าง: window.mockPayment('m4') = จำลองว่า Bank ส่งสลิปผ่าน */
+(window as unknown as { mockPayment: (memberId: string) => void }).mockPayment = (memberId: string) => {
+  const b = bills.find((x) => x.shares.some((s) => s.memberId === memberId && !s.paidAt && !s.isPayer));
+  if (!b) return;
+  const s = b.shares.find((x) => x.memberId === memberId)!;
+  s.paidAt = new Date().toISOString();
+  s.transRef = 'MOCKLIVE' + Date.now();
+  s.slipUrl = slipSvg(byId(memberId).name, byId(b.payerId).name, s.amount, s.transRef);
+  const debt = b.shares.filter((x) => !x.isPayer);
+  b.paidCount = debt.filter((x) => x.paidAt).length;
+  b.dueAmount = round2(debt.filter((x) => !x.paidAt).reduce((a, x) => a + x.amount, 0));
+  if (b.paidCount === b.debtorCount) b.status = 'settled';
+  emit({ type: 'payment', billIds: [b.id], memberId, message: `${byId(memberId).name} ชำระเงิน ${s.amount.toFixed(2)} บาท เรียบร้อยแล้ว` });
+};
 let presets: MemberPreset[] = [
   { id: 'p1', name: 'แก๊งคาเฟ่', memberIds: ['m1', 'm2', 'm3', 'm4'] },
   { id: 'p2', name: 'ทริปเชียงใหม่', memberIds: ['m1', 'm2', 'm3', 'm4', 'm5'] },
@@ -126,6 +144,7 @@ export const mockApi: Api = {
     if (!input.items.length) fields.items = 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ';
     if (Object.keys(fields).length) throw new ApiError(400, { code: 'validation', message: 'กรุณาตรวจสอบข้อมูลให้ครบถ้วน', fields });
     const b = addBill({ ...input, receiptImage: input.receiptImage });
+    emit({ type: 'bill_created', billIds: [b.id], message: `${byId(ME).name} บันทึกบิลใหม่ "${b.title}"` });
     return { id: b.id, announced: true };
   },
   async summary({ from, to }) {
@@ -157,6 +176,11 @@ export const mockApi: Api = {
     const me = byId(ME);
     Object.assign(me, { promptpayId: normalizePromptPay(p.promptpayId), bankAccount: p.bankAccount || null, accountName: p.accountName || null });
     return { ...me };
+  },
+  subscribe(onEvent, onStatus) {
+    listeners.add(onEvent);
+    setTimeout(() => onStatus('live'), 300);
+    return () => { listeners.delete(onEvent); };
   },
   async listPresets() { await wait(200); return presets.map((p) => ({ ...p })); },
   async savePreset({ name, memberIds }) {

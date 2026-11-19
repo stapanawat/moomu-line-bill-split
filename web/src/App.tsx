@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { initPlatform, isMock } from './lib/platform';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { LiveStatus } from './lib/live';
+import { initPlatform, isMock, type Platform } from './lib/platform';
+import GroupPicker from './pages/GroupPicker';
 import type { Api } from './lib/api';
 import type { Member, Session } from './types';
 import { Ctx, errorText, type AppCtx } from './context';
@@ -21,9 +23,28 @@ export default function App() {
   const [api, setApi] = useState<Api | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
+  const [picker, setPicker] = useState<Platform | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [tab, setTab] = useState<Tab>('bills');
   const [flash, setFlash] = useState<{ title: string; text?: string } | null>(null);
+  const [liveTick, setLiveTick] = useState(0);
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>('connecting');
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  // รับเหตุการณ์เรียลไทม์: มีคนชำระเงิน สร้างบิล หรือรายชื่อเปลี่ยน -> โหลดข้อมูลใหม่ทันที
+  useEffect(() => {
+    if (!api) return;
+    return api.subscribe((e) => {
+      setLiveTick((t) => t + 1);
+      if (e.type === 'members') api.session().then((s) => setSession(s)).catch(() => {});
+      if (e.message) {
+        setNotice(e.message);
+        clearTimeout(noticeTimer.current);
+        noticeTimer.current = setTimeout(() => setNotice(null), 5000);
+      }
+    }, setLiveStatus);
+  }, [api]);
 
   useEffect(() => {
     let alive = true;
@@ -31,6 +52,7 @@ export default function App() {
     (async () => {
       try {
         const p = await initPlatform();
+        if (!p.api) { if (alive) setPicker(p); return; }
         const s = await p.api.session();
         if (!alive) return;
         setApi(p.api);
@@ -48,8 +70,8 @@ export default function App() {
   const ctx: AppCtx | null = useMemo(() => {
     if (!api || !session) return null;
     const map = new Map(session.members.map((m) => [m.id, m]));
-    return { api, session, member: (id) => map.get(id), setMembers, setMe };
-  }, [api, session, setMembers, setMe]);
+    return { api, session, member: (id) => map.get(id), setMembers, setMe, liveTick };
+  }, [api, session, setMembers, setMe, liveTick]);
 
   if (fatal) {
     return (
@@ -60,6 +82,7 @@ export default function App() {
       </div>
     );
   }
+  if (picker) return <GroupPicker getToken={picker.getToken} />;
   if (!ctx) return <div className="page-center"><Loading text="กำลังเชื่อมต่อกับ LINE" /></div>;
 
   const go = (t: Tab) => { setTab(t); window.scrollTo({ top: 0 }); };
@@ -75,7 +98,12 @@ export default function App() {
               <div className="brand-sub">{ctx.session.group.name}</div>
             </div>
           </div>
-          <div className="me"><Avatar member={ctx.session.me} size={34} /><span className="me-name">{ctx.session.me.name}</span></div>
+          <div className="me">
+            <span className={`live live-${liveStatus}`} title={liveStatus === 'live' ? 'ข้อมูลอัปเดตอัตโนมัติ' : 'กำลังเชื่อมต่อใหม่'}>
+              <span className="live-dot" />{liveStatus === 'live' ? 'อัปเดตอัตโนมัติ' : 'กำลังเชื่อมต่อ'}
+            </span>
+            <Avatar member={ctx.session.me} size={34} /><span className="me-name">{ctx.session.me.name}</span>
+          </div>
         </div>
         <nav className="container tabs" aria-label="เมนูหลัก">
           {TABS.map((t) => (
@@ -86,6 +114,11 @@ export default function App() {
         </nav>
       </header>
 
+      {notice && (
+        <div className="live-toast" role="status">
+          <Alert kind="success" title="ข้อมูลอัปเดตแล้ว" onClose={() => setNotice(null)}>{notice}</Alert>
+        </div>
+      )}
       <main className="container main">
         {isMock && (
           <Alert kind="info" title="โหมดข้อมูลตัวอย่าง">ข้อมูลในหน้านี้เป็นข้อมูลจำลองสำหรับทดสอบหน้าตา ไม่ได้เชื่อมต่อกับ LINE หรือฐานข้อมูล</Alert>

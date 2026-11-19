@@ -46,6 +46,7 @@ export async function groupDues(groupId) {
 /** แปลงเป็นรูปแบบที่ messages.reminderMessages ใช้ */
 export const toReminderInput = (dues) =>
   dues.bills.map((x) => ({
+    id: x.bill.id,
     title: x.bill.title,
     bill_date: x.bill.bill_date,
     payerName: x.payer?.display_name || '-',

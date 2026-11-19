@@ -1,0 +1,568 @@
+{
+  "type": "carousel",
+  "contents": [
+    {
+      "type": "bubble",
+      "size": "mega",
+      "header": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "text",
+            "text": "แจ้งเตือนยอดค้างชำระ",
+            "wrap": true,
+            "color": "#FFFFFFCC",
+            "size": "sm"
+          },
+          {
+            "type": "text",
+            "text": "558.00 บาท",
+            "wrap": true,
+            "color": "#FFFFFF",
+            "size": "xl",
+            "weight": "bold",
+            "margin": "sm"
+          },
+          {
+            "type": "text",
+            "text": "ประจำวันที่ 20 พ.ย. 2569",
+            "wrap": true,
+            "color": "#FFFFFFE6",
+            "size": "sm",
+            "margin": "sm"
+          }
+        ],
+        "backgroundColor": "#B7791F",
+        "paddingAll": "20px"
+      },
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "จำนวนรายการที่ค้าง",
+                "wrap": true,
+                "size": "sm",
+                "color": "#6B7684",
+                "flex": 4
+              },
+              {
+                "type": "text",
+                "text": "2 รายการ",
+                "wrap": true,
+                "size": "sm",
+                "color": "#1B2430",
+                "align": "end",
+                "flex": 6,
+                "weight": "regular"
+              }
+            ],
+            "margin": "none"
+          },
+          {
+            "type": "separator",
+            "margin": "lg",
+            "color": "#E3E7EC"
+          },
+          {
+            "type": "text",
+            "text": "ยอดค้างรายบุคคล",
+            "wrap": true,
+            "size": "sm",
+            "color": "#6B7684",
+            "margin": "lg"
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "ต้นกล้า",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "flex": 5,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "283.50",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "weight": "bold",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#C0352B",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center",
+                "weight": "bold"
+              }
+            ],
+            "margin": "md"
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "Bank",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "flex": 5,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "142.50",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "weight": "bold",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#C0352B",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center",
+                "weight": "bold"
+              }
+            ],
+            "margin": "md"
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "Fern",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "flex": 5,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "132.00",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "weight": "bold",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#C0352B",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center",
+                "weight": "bold"
+              }
+            ],
+            "margin": "md"
+          },
+          {
+            "type": "separator",
+            "margin": "lg",
+            "color": "#E3E7EC"
+          },
+          {
+            "type": "text",
+            "text": "เมื่อโอนแล้ว กรุณาส่งรูปสลิปในกลุ่มนี้ ระบบจะตรวจสอบให้อัตโนมัติ",
+            "wrap": true,
+            "size": "xs",
+            "color": "#6B7684",
+            "margin": "lg"
+          }
+        ],
+        "paddingAll": "20px"
+      },
+      "footer": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "button",
+            "style": "primary",
+            "color": "#B7791F",
+            "height": "sm",
+            "action": {
+              "type": "uri",
+              "label": "ชำระผ่าน QR",
+              "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY"
+            }
+          }
+        ],
+        "paddingAll": "16px",
+        "paddingTop": "0px"
+      }
+    },
+    {
+      "type": "bubble",
+      "size": "mega",
+      "header": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "text",
+            "text": "19 พ.ย. 2569",
+            "wrap": true,
+            "color": "#FFFFFFCC",
+            "size": "sm"
+          },
+          {
+            "type": "text",
+            "text": "Roast Coffee นิมมาน",
+            "wrap": true,
+            "color": "#FFFFFF",
+            "size": "xl",
+            "weight": "bold",
+            "margin": "sm"
+          },
+          {
+            "type": "text",
+            "text": "ผู้รับเงิน มายด์",
+            "wrap": true,
+            "color": "#FFFFFFE6",
+            "size": "sm",
+            "margin": "sm"
+          }
+        ],
+        "backgroundColor": "#B7791F",
+        "paddingAll": "20px"
+      },
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "ค้างชำระรวม",
+                "wrap": true,
+                "size": "sm",
+                "color": "#6B7684",
+                "flex": 4
+              },
+              {
+                "type": "text",
+                "text": "305.00 บาท",
+                "wrap": true,
+                "size": "sm",
+                "color": "#1B2430",
+                "align": "end",
+                "flex": 6,
+                "weight": "bold"
+              }
+            ],
+            "margin": "none"
+          },
+          {
+            "type": "separator",
+            "margin": "lg",
+            "color": "#E3E7EC"
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "ต้นกล้า",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "flex": 5,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "162.50",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "weight": "bold",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#C0352B",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center",
+                "weight": "bold"
+              }
+            ],
+            "margin": "md"
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "Bank",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "flex": 5,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "142.50",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "weight": "bold",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#C0352B",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center",
+                "weight": "bold"
+              }
+            ],
+            "margin": "md"
+          }
+        ],
+        "paddingAll": "20px"
+      },
+      "footer": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "button",
+            "style": "primary",
+            "color": "#B7791F",
+            "height": "sm",
+            "action": {
+              "type": "uri",
+              "label": "ชำระเงิน / ดูใบเสร็จ",
+              "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY&bill=b1"
+            }
+          }
+        ],
+        "paddingAll": "16px",
+        "paddingTop": "0px"
+      }
+    },
+    {
+      "type": "bubble",
+      "size": "mega",
+      "header": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "text",
+            "text": "18 พ.ย. 2569",
+            "wrap": true,
+            "color": "#FFFFFFCC",
+            "size": "sm"
+          },
+          {
+            "type": "text",
+            "text": "ทริปเชียงใหม่ มื้อเย็น",
+            "wrap": true,
+            "color": "#FFFFFF",
+            "size": "xl",
+            "weight": "bold",
+            "margin": "sm"
+          },
+          {
+            "type": "text",
+            "text": "ผู้รับเงิน Bank",
+            "wrap": true,
+            "color": "#FFFFFFE6",
+            "size": "sm",
+            "margin": "sm"
+          }
+        ],
+        "backgroundColor": "#B7791F",
+        "paddingAll": "20px"
+      },
+      "body": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "ค้างชำระรวม",
+                "wrap": true,
+                "size": "sm",
+                "color": "#6B7684",
+                "flex": 4
+              },
+              {
+                "type": "text",
+                "text": "253.00 บาท",
+                "wrap": true,
+                "size": "sm",
+                "color": "#1B2430",
+                "align": "end",
+                "flex": 6,
+                "weight": "bold"
+              }
+            ],
+            "margin": "none"
+          },
+          {
+            "type": "separator",
+            "margin": "lg",
+            "color": "#E3E7EC"
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "ต้นกล้า",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "flex": 5,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "121.00",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "weight": "bold",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#C0352B",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center",
+                "weight": "bold"
+              }
+            ],
+            "margin": "md"
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "Fern",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "flex": 5,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "132.00",
+                "wrap": true,
+                "size": "md",
+                "color": "#1B2430",
+                "weight": "bold",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center"
+              },
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#C0352B",
+                "align": "end",
+                "flex": 3,
+                "gravity": "center",
+                "weight": "bold"
+              }
+            ],
+            "margin": "md"
+          }
+        ],
+        "paddingAll": "20px"
+      },
+      "footer": {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "button",
+            "style": "primary",
+            "color": "#B7791F",
+            "height": "sm",
+            "action": {
+              "type": "uri",
+              "label": "ชำระเงิน / ดูใบเสร็จ",
+              "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY&bill=b2"
+            }
+          }
+        ],
+        "paddingAll": "16px",
+        "paddingTop": "0px"
+      }
+    }
+  ]
+}

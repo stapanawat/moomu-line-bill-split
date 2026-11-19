@@ -347,3 +347,14 @@ button, input, select { font: inherit; color: inherit; }
 .line-member .person-name { font-size: 22.5px; font-weight: 500; }
 .line-member .line-amount { font-size: 22.5px; }
 .line-member .avatar { font-size: 15px !important; }
+.steps-list { margin: 6px 0 0; padding-left: 20px; }
+.steps-list li { margin: 2px 0; }
+
+/* ---------- สถานะเรียลไทม์ ---------- */
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mute); margin-right: 6px; white-space: nowrap; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: #b8c0c8; }
+.live-live .live-dot { background: var(--brand); box-shadow: 0 0 0 3px rgba(6, 199, 85, 0.18); }
+.live-connecting .live-dot, .live-offline .live-dot { background: #d9a400; }
+@media (max-width: 400px) { .live { font-size: 0; gap: 0; } }
+.live-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 60; width: min(520px, calc(100% - 24px)); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); border-radius: var(--radius); animation: toast-in 0.2s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
