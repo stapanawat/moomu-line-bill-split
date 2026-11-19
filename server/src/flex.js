@@ -169,7 +169,7 @@ export function welcomeCard({ url, remindTime }) {
       step(3, 'สมาชิกสแกน QR ในเว็บเพื่อโอนเงิน แล้วส่งรูปสลิปในกลุ่ม'),
       step(4, `ระบบแจ้งเตือนผู้ที่ยังไม่ชำระทุกวัน เวลา ${remindTime} น.`),
       sep(),
-      text('พิมพ์ "เมนู" เพื่อขอลิงก์ หรือ "ยอดค้าง" เพื่อดูยอดคงค้าง', { size: 'xs', color: COLORS.mute, margin: 'lg' }),
+      text('พิมพ์ "moomi" เพื่อขอลิงก์ หรือ "ยอดค้าง" เพื่อดูยอดคงค้าง', { size: 'xs', color: COLORS.mute, margin: 'lg' }),
     ],
     footer('เปิดเว็บหารบิล', url, COLORS.green),
   );

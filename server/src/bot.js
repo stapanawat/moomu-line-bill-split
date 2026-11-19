@@ -8,7 +8,8 @@ import { verifySlip, allocate, SlipError } from './slip.js';
 import { round2, formatBaht } from '../../shared/billing.js';
 import { publish } from './events.js';
 
-const MENU_WORDS = new Set(['เมนู', 'บิล', 'หารบิล', 'menu', 'เว็บ', 'ลิงก์']);
+// คำสั่งขอลิงก์เว็บ (ไม่สนตัวพิมพ์เล็ก-ใหญ่ เช่น Moomi, MOOMI)
+const MENU_WORDS = new Set(['moomi']);
 const DUES_WORDS = new Set(['ยอดค้าง', 'ค้างจ่าย', 'ใครยังไม่จ่าย']);
 
 const seen = new Set(); // กันประมวลผล event ซ้ำ (LINE ส่งซ้ำได้)
