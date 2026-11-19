@@ -167,7 +167,7 @@ test('การ์ดอื่น ๆ ถูกต้องตามข้อก
   const menu = JSON.stringify(all.at(-2));
   assert.match(menu, /150\.50/);
   assert.match(menu, /tab=new/);
-  assert.match(menu, /"type":"message","label":"ดูยอดค้าง","text":"ยอดค้าง"/);
+  assert.match(menu, /tab=dues/);
   for (const m of all) { if (m.type === 'flex') checkFlex(m); noEmoji(m); }
   assert.equal(all[0].type, 'textV2');
 });

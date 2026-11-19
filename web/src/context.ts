@@ -10,6 +10,10 @@ export interface AppCtx {
   setMe: (m: Member) => void;
   /** เพิ่มขึ้นทุกครั้งที่มีเหตุการณ์จากเซิร์ฟเวอร์ ใช้เป็นตัวกระตุ้นให้หน้าโหลดข้อมูลใหม่ */
   liveTick: number;
+  /** เปิดอยู่ในแอป LINE หรือไม่ (ใช้ตัดสินใจแสดงปุ่มกลับไปที่ LINE) */
+  inClient: boolean;
+  /** ปิดหน้าเว็บกลับไปที่แชท LINE */
+  closeWindow: () => void;
 }
 
 export const Ctx = createContext<AppCtx | null>(null);

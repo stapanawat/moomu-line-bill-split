@@ -391,3 +391,17 @@ button, input, select { font: inherit; color: inherit; }
 .date-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--mute); cursor: pointer; }
 .date-clear:hover { background: var(--line-2); color: var(--ink); }
 .field.has-error .date-input input { border-color: var(--danger); }
+
+/* ---------- ยอดค้างของฉัน ---------- */
+.due-hero { background: linear-gradient(135deg, #b7791f, #9a6417); color: #fff; border-radius: var(--radius); padding: 20px; }
+.due-hero-k { font-size: 13px; opacity: 0.9; }
+.due-hero-v { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 4px; }
+.due-hero-v small { font-size: 16px; font-weight: 600; }
+.due-hero-sub { font-size: 13px; opacity: 0.9; margin-top: 4px; }
+.pay-link { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--brand-ink); }
+.no-dues { text-align: center; padding: 36px 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.no-dues h2 { font-size: 20px; }
+.no-dues p { margin: 0; }
+.no-dues-icon { width: 76px; height: 76px; border-radius: 50%; background: var(--success-soft); color: var(--success); display: grid; place-items: center; margin-bottom: 6px; }
+.no-dues-actions { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 320px; margin-top: 12px; }
+.no-dues-count { font-size: 13px; color: var(--mute); display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: center; }

@@ -136,7 +136,7 @@ export function reminderSummaryCard({ dateText, total, people, billCount, url })
       sep(),
       text('เมื่อโอนแล้ว กรุณาส่งรูปสลิปในกลุ่มนี้ ระบบจะตรวจสอบให้อัตโนมัติ', { size: 'xs', color: COLORS.mute, margin: 'lg' }),
     ],
-    footer('ชำระผ่าน QR', url, COLORS.amber),
+    footer('ดูยอดของฉัน / ชำระ', `${url}${url.includes('?') ? '&' : '?'}tab=dues`, COLORS.amber),
   );
 }
 
@@ -204,7 +204,7 @@ export function menuCard({ groupName, url, dueTotal, dueBills, duePeople, remind
     ], { paddingAll: '20px', paddingBottom: '8px' }),
     footer: box('vertical', [
       btn({ type: 'uri', label: 'ดูรายการบิล', uri: link('bills') }, 'primary'),
-      btn({ type: 'message', label: 'ดูยอดค้าง', text: 'ยอดค้าง' }),
+      btn({ type: 'uri', label: 'ดูยอดค้างของฉัน', uri: link('dues') }),
       btn({ type: 'uri', label: 'สร้างบิลใหม่', uri: link('new') }),
       btn({ type: 'uri', label: 'สรุปยอดรายคน/ร้าน', uri: link('summary') }),
       text(`แจ้งเตือนผู้ที่ยังไม่ชำระทุกวัน ${remindTime} น.`, { size: 'xxs', color: COLORS.mute, align: 'center', margin: 'md' }),

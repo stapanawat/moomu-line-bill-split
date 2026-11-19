@@ -10,8 +10,9 @@ import BillsPage from './pages/BillsPage';
 import NewBillPage from './pages/NewBillPage';
 import SummaryPage from './pages/SummaryPage';
 import PaymentSettings from './pages/PaymentSettings';
+import MyDuesPage from './pages/MyDuesPage';
 
-type Tab = 'bills' | 'new' | 'summary' | 'account';
+type Tab = 'bills' | 'new' | 'summary' | 'account' | 'dues';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'bills', label: 'รายการบิล', icon: 'list' },
   { id: 'new', label: 'สร้างบิล', icon: 'plus' },
@@ -24,11 +25,12 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [fatal, setFatal] = useState<string | null>(null);
   const [picker, setPicker] = useState<Platform | null>(null);
+  const [platform, setPlatform] = useState<Platform | null>(null);
   const [attempt, setAttempt] = useState(0);
   // เปิดแท็บตามปุ่มในเมนูของบอท (?tab=bills|new|summary|account)
   const [tab, setTab] = useState<Tab>(() => {
     const t = new URLSearchParams(location.search).get('tab');
-    return TABS.some((x) => x.id === t) ? (t as Tab) : 'bills';
+    return t === 'dues' || TABS.some((x) => x.id === t) ? (t as Tab) : 'bills';
   });
   const [flash, setFlash] = useState<{ title: string; text?: string } | null>(null);
   const [liveTick, setLiveTick] = useState(0);
@@ -59,6 +61,7 @@ export default function App() {
         if (!p.api) { if (alive) setPicker(p); return; }
         const s = await p.api.session();
         if (!alive) return;
+        setPlatform(p);
         setApi(p.api);
         setSession(s);
       } catch (e) {
@@ -74,8 +77,12 @@ export default function App() {
   const ctx: AppCtx | null = useMemo(() => {
     if (!api || !session) return null;
     const map = new Map(session.members.map((m) => [m.id, m]));
-    return { api, session, member: (id) => map.get(id), setMembers, setMe, liveTick };
-  }, [api, session, setMembers, setMe, liveTick]);
+    return {
+      api, session, member: (id) => map.get(id), setMembers, setMe, liveTick,
+      inClient: platform?.inClient ?? false,
+      closeWindow: () => platform?.closeWindow(),
+    };
+  }, [api, session, setMembers, setMe, liveTick, platform]);
 
   if (fatal) {
     return (
@@ -142,6 +149,7 @@ export default function App() {
         )}
         {tab === 'summary' && <SummaryPage />}
         {tab === 'account' && <PaymentSettings />}
+        {tab === 'dues' && <MyDuesPage onShowBills={() => go('bills')} />}
       </main>
     </Ctx.Provider>
   );
