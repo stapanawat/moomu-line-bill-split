@@ -24,6 +24,7 @@ export interface Api {
   listPresets(): Promise<MemberPreset[]>;
   savePreset(p: { name: string; memberIds: string[] }): Promise<MemberPreset>;
   deletePreset(id: string): Promise<void>;
+  uploadSlip(billId: string, image: string, memberId?: string): Promise<{ ok: true; amount: number; transRef: string; announced: boolean }>;
   /** รับเหตุการณ์เรียลไทม์ คืนฟังก์ชันสำหรับยกเลิก */
   subscribe(onEvent: (e: LiveEvent) => void, onStatus: (s: LiveStatus) => void): () => void;
 }
@@ -69,6 +70,7 @@ export function createHttpApi(groupKey: string, getToken: () => string | null): 
     listPresets: async () => (await call<{ presets: MemberPreset[] }>('GET', '/api/presets')).presets,
     savePreset: async (p) => (await call<{ preset: MemberPreset }>('POST', '/api/presets', {}, p)).preset,
     deletePreset: async (id) => { await call('DELETE', `/api/presets/${id}`); },
+    uploadSlip: (billId, image, memberId) => call('POST', `/api/bills/${billId}/slip`, {}, { image, memberId }),
     subscribe: (onEvent, onStatus) => connectLive(groupKey, getToken, onEvent, onStatus),
   };
 }

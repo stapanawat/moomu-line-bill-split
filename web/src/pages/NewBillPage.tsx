@@ -1,3 +1,4 @@
+import DateInput from '../components/DateInput';
 import { useMemo, useRef, useState } from 'react';
 import { computeShares, normalizePromptPay } from '../../../shared/billing.js';
 import { useApp, errorText } from '../context';
@@ -122,7 +123,7 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น Roast Coffee สาขานิมมาน" maxLength={120} />
           </Field>
           <Field label="วันที่" error={errors.date}>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput value={date} onChange={setDate} clearable={false} long />
           </Field>
           <Field label="ผู้รับเงิน (ผู้ที่ชำระบิลไปก่อน)">
             <select value={payerId} onChange={(e) => changePayer(e.target.value)}>

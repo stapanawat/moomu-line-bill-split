@@ -1,0 +1,186 @@
+{
+  "type": "bubble",
+  "size": "mega",
+  "header": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "Moomi หารบิล",
+        "wrap": true,
+        "color": "#FFFFFFCC",
+        "size": "sm"
+      },
+      {
+        "type": "text",
+        "text": "แก๊งคาเฟ่ฮอปปิ้ง",
+        "wrap": true,
+        "color": "#FFFFFF",
+        "size": "xl",
+        "weight": "bold",
+        "margin": "sm"
+      },
+      {
+        "type": "text",
+        "text": "บันทึกบิล ชำระผ่าน QR ตรวจสลิปอัตโนมัติ",
+        "wrap": true,
+        "color": "#FFFFFFE6",
+        "size": "sm",
+        "margin": "sm"
+      }
+    ],
+    "backgroundColor": "#06C755",
+    "paddingAll": "20px"
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "text",
+                "text": "ยอดค้างชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#6B7684"
+              },
+              {
+                "type": "text",
+                "text": "558.00",
+                "wrap": true,
+                "size": "xl",
+                "weight": "bold",
+                "color": "#C0352B",
+                "margin": "xs"
+              },
+              {
+                "type": "text",
+                "text": "บาท",
+                "wrap": true,
+                "size": "xs",
+                "color": "#6B7684"
+              }
+            ],
+            "flex": 1
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "text",
+                "text": "รอชำระ",
+                "wrap": true,
+                "size": "xs",
+                "color": "#6B7684",
+                "align": "end"
+              },
+              {
+                "type": "text",
+                "text": "2 บิล",
+                "wrap": true,
+                "size": "lg",
+                "weight": "bold",
+                "color": "#1B2430",
+                "align": "end",
+                "margin": "xs"
+              },
+              {
+                "type": "text",
+                "text": "3 คน",
+                "wrap": true,
+                "size": "xs",
+                "color": "#6B7684",
+                "align": "end"
+              }
+            ],
+            "flex": 1
+          }
+        ],
+        "backgroundColor": "#F4F6F8",
+        "cornerRadius": "12px",
+        "paddingAll": "14px"
+      },
+      {
+        "type": "text",
+        "text": "เลือกเมนูที่ต้องการ",
+        "wrap": true,
+        "size": "sm",
+        "color": "#6B7684",
+        "margin": "lg"
+      }
+    ],
+    "paddingAll": "20px",
+    "paddingBottom": "8px"
+  },
+  "footer": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "button",
+        "style": "primary",
+        "height": "sm",
+        "margin": "sm",
+        "color": "#06C755",
+        "action": {
+          "type": "uri",
+          "label": "ดูรายการบิล",
+          "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY&tab=bills"
+        }
+      },
+      {
+        "type": "button",
+        "style": "secondary",
+        "height": "sm",
+        "margin": "sm",
+        "action": {
+          "type": "message",
+          "label": "ดูยอดค้าง",
+          "text": "ยอดค้าง"
+        }
+      },
+      {
+        "type": "button",
+        "style": "secondary",
+        "height": "sm",
+        "margin": "sm",
+        "action": {
+          "type": "uri",
+          "label": "สร้างบิลใหม่",
+          "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY&tab=new"
+        }
+      },
+      {
+        "type": "button",
+        "style": "secondary",
+        "height": "sm",
+        "margin": "sm",
+        "action": {
+          "type": "uri",
+          "label": "สรุปยอดรายคน/ร้าน",
+          "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY&tab=summary"
+        }
+      },
+      {
+        "type": "text",
+        "text": "แจ้งเตือนผู้ที่ยังไม่ชำระทุกวัน 18:00 น.",
+        "wrap": true,
+        "size": "xxs",
+        "color": "#6B7684",
+        "align": "center",
+        "margin": "md"
+      }
+    ],
+    "paddingAll": "16px",
+    "paddingTop": "4px"
+  }
+}

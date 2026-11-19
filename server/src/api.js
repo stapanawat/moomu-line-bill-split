@@ -8,6 +8,8 @@ import { HttpError, readJson, parseDataUrl } from './http.js';
 import { computeShares, normalizePromptPay, round2 } from '../../shared/billing.js';
 import { ensureMember } from './services.js';
 import { publish, subscribe } from './events.js';
+import { processSlip } from './slipflow.js';
+import { formatBaht } from '../../shared/billing.js';
 
 // ---------------- auth ----------------
 /** ตรวจตัวตนผู้ใช้จาก LIFF ID token คืน LINE userId */
@@ -323,6 +325,50 @@ async function removePreset(req, url, id) {
   return { ok: true };
 }
 
+// ---------------- แนบสลิปจากเว็บ ----------------
+async function uploadSlip(req, url, billId) {
+  const { group, me } = await auth(req, url);
+  const body = await readJson(req);
+  const bill = await db.getBill(group.id, billId);
+  if (!bill) throw new HttpError(404, 'bill_not_found', 'ไม่พบรายการนี้');
+
+  const targetId = body.memberId || me.id;
+  const isAdminGuest = !me.line_user_id;
+  if (targetId !== me.id && me.id !== bill.payer_member_id && !isAdminGuest) {
+    throw new HttpError(403, 'forbidden', 'แนบสลิปแทนผู้อื่นได้เฉพาะผู้รับเงินของบิลนี้');
+  }
+  const share = bill.bill_shares.find((s) => s.member_id === targetId);
+  if (!share || targetId === bill.payer_member_id) throw new HttpError(400, 'no_share', 'สมาชิกนี้ไม่มียอดที่ต้องชำระในบิลนี้');
+  if (share.paid_at) throw new HttpError(400, 'already_paid', 'รายการนี้ชำระเรียบร้อยแล้ว');
+
+  const img = parseDataUrl(body.image, 5 * 1024 * 1024);
+  if (!img) throw new HttpError(400, 'validation', 'กรุณาแนบรูปสลิป (JPG หรือ PNG)', { image: 'กรุณาแนบรูปสลิป' });
+
+  const member = (await db.listMembers(group.id)).find((m) => m.id === targetId);
+  if (!member) throw new HttpError(404, 'member_not_found', 'ไม่พบสมาชิกนี้ในกลุ่ม');
+
+  const r = await processSlip({ group, member, buffer: img.buffer, contentType: img.contentType, onlyBillId: billId });
+  if (r.status === 'no_dues') throw new HttpError(400, 'already_paid', 'รายการนี้ไม่มียอดค้างชำระแล้ว');
+  if (r.status === 'not_slip') {
+    throw new HttpError(400, 'slip_not_slip', 'ไม่พบ QR บนรูปที่แนบ กรุณาแนบรูปสลิปฉบับเต็มที่เห็น QR ชัดเจน');
+  }
+  if (r.status === 'fail') {
+    let message = msg.REASONS[r.reason] || msg.REASONS.provider;
+    if (r.reason === 'amount' && r.slip) message += ` (ยอดในสลิป ${formatBaht(r.slip.amount)} ยอดที่ต้องชำระ ${formatBaht(share.amount)})`;
+    throw new HttpError(400, `slip_${r.reason}`, message);
+  }
+
+  // แจ้งในกลุ่ม LINE ให้ทุกคนเห็น (ใช้โควตาข้อความ push)
+  let announced = false;
+  if (config.announceWebSlip) {
+    try {
+      await line.push(group.line_group_id, msg.paymentSuccessMessage(member, r.slip, r.paid, liffUrl(group.access_key)));
+      announced = true;
+    } catch (e) { console.error('[api] announce slip failed', e.message); }
+  }
+  return { ok: true, amount: r.slip.amount, transRef: r.slip.transRef, billIds: r.billIds, announced };
+}
+
 /** เปิดสตรีมเหตุการณ์ของกลุ่ม (ตอบเองโดยไม่ผ่าน sendJson) */
 export async function openEvents(req, res, url) {
   const { group } = await auth(req, url);
@@ -337,6 +383,8 @@ export async function routeApi(req, url) {
   if (m === 'GET' && p === '/api/session') return session(req, url);
   if (m === 'GET' && p === '/api/bills') return listBills(req, url);
   if (m === 'POST' && p === '/api/bills') return createBill(req, url);
+  const sm = /^\/api\/bills\/([0-9a-f-]{36})\/slip$/i.exec(p);
+  if (m === 'POST' && sm) return uploadSlip(req, url, sm[1]);
   const bm = /^\/api\/bills\/([0-9a-f-]{36})$/i.exec(p);
   if (m === 'GET' && bm) return getBill(req, url, bm[1]);
   if (m === 'GET' && p === '/api/summary') return summary(req, url);

@@ -1,3 +1,4 @@
+import DateInput from '../components/DateInput';
 import { useEffect, useMemo, useState } from 'react';
 import { useApp, errorText } from '../context';
 import type { Summary, SummaryBill } from '../types';
@@ -80,9 +81,9 @@ export default function SummaryPage() {
       <section className="card">
         <div className="filters">
           <Field label="ตั้งแต่วันที่" error={from && to && from > to ? 'วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด' : undefined}>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DateInput value={from} onChange={setFrom} placeholder="ทั้งหมด" />
           </Field>
-          <Field label="ถึงวันที่"><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></Field>
+          <Field label="ถึงวันที่"><DateInput value={to} onChange={setTo} placeholder="ถึงปัจจุบัน" /></Field>
           <Field label={view === 'person' ? 'ค้นหาชื่อสมาชิกหรือร้าน' : 'ค้นหาร้านหรือชื่อสมาชิก'} className="grow">
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์คำค้นหา" />
           </Field>

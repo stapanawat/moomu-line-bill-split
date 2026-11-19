@@ -6,6 +6,7 @@ import type { BillDetail } from '../types';
 import { baht, maskPromptPay, thDate } from '../lib/format';
 import { Alert, Badge, Button, Empty, Loading, Modal, Person, Segmented } from '../components/ui';
 import { StatusBadge } from './BillsPage';
+import SlipUploader from '../components/SlipUploader';
 
 type View = 'qr' | 'receipt' | `slip:${string}`;
 
@@ -44,15 +45,20 @@ export default function BillDetailModal({ id, onClose }: { id: string; onClose: 
         <Alert kind="error" title="ไม่สามารถโหลดรายละเอียดบิลได้" action={<Button variant="secondary" size="sm" icon="refresh" onClick={() => setReload((r) => r + 1)}>ลองใหม่</Button>}>{error}</Alert>
       )}
       {!bill && !error && <Loading />}
-      {bill && <Body bill={bill} view={view} setView={setView} target={target} setTarget={setTarget} meId={session.me.id} member={member} />}
+      {bill && <Body bill={bill} view={view} setView={setView} target={target} setTarget={setTarget} meId={session.me.id} member={member} reload={() => setReload((r) => r + 1)} />}
     </Modal>
   );
 }
 
-function Body({ bill, view, setView, target, setTarget, meId, member }: {
+function Body({ bill, view, setView, target, setTarget, meId, member, reload }: {
   bill: BillDetail; view: View; setView: (v: View) => void; target: string; setTarget: (s: string) => void;
-  meId: string; member: ReturnType<typeof useApp>['member'];
+  meId: string; member: ReturnType<typeof useApp>['member']; reload: () => void;
 }) {
+  const { session } = useApp();
+  const [uploadFor, setUploadFor] = useState<string | null>(null);
+  // ผู้รับเงินของบิล หรือผู้ดูแลที่ไม่ได้อยู่ในกลุ่ม แนบสลิปแทนคนอื่นได้
+  const canUploadForOthers = meId === bill.payerId || !session.members.some((m) => m.id === meId);
+  const uploadShare = uploadFor ? bill.shares.find((s) => s.memberId === uploadFor) : undefined;
   const payer = member(bill.payerId);
   const myShare = bill.shares.find((s) => s.memberId === meId);
   const debtors = bill.shares.filter((s) => !s.isPayer);
@@ -70,9 +76,17 @@ function Body({ bill, view, setView, target, setTarget, meId, member }: {
       {myShare && !myShare.isPayer && (
         myShare.paidAt
           ? <Alert kind="success" title="ท่านชำระรายการนี้เรียบร้อยแล้ว">ยอด {baht(myShare.amount)} บาท{myShare.transRef ? ` เลขอ้างอิง ${myShare.transRef}` : ''}</Alert>
-          : <Alert kind="warning" title={`ยอดที่ท่านต้องชำระ ${baht(myShare.amount)} บาท`}>
-              สแกน QR ด้านล่างเพื่อโอนเงินให้ {payer?.name} เมื่อโอนแล้ว กรุณาส่งรูปสลิปในกลุ่ม LINE ระบบจะตรวจสอบและอัปเดตสถานะให้อัตโนมัติ
+          : <Alert kind="warning" title={`ยอดที่ท่านต้องชำระ ${baht(myShare.amount)} บาท`}
+              action={uploadFor !== meId && <Button size="sm" icon="image" onClick={() => setUploadFor(meId)}>แนบสลิปที่นี่</Button>}>
+              สแกน QR ด้านล่างเพื่อโอนเงินให้ {payer?.name} เมื่อโอนแล้ว แนบสลิปที่ปุ่มด้านล่าง หรือส่งรูปสลิปในกลุ่ม LINE ระบบจะตรวจสอบและอัปเดตสถานะให้อัตโนมัติ
             </Alert>
+      )}
+
+      {uploadShare && (
+        <SlipUploader key={uploadShare.memberId} billId={bill.id} memberId={uploadShare.memberId}
+          memberName={member(uploadShare.memberId)?.name ?? ''} amount={uploadShare.amount}
+          onBehalf={uploadShare.memberId !== meId}
+          onCancel={() => setUploadFor(null)} onDone={() => { setUploadFor(null); reload(); }} />
       )}
 
       <div className="viewer">
@@ -135,6 +149,9 @@ function Body({ bill, view, setView, target, setTarget, meId, member }: {
                   <td className="num">
                     {s.slipUrl && <Button variant="ghost" size="sm" icon="image" onClick={() => setView(`slip:${s.memberId}`)}>ดูสลิป</Button>}
                     {!s.isPayer && !s.paidAt && <Button variant="ghost" size="sm" icon="qr" onClick={() => { setTarget(s.memberId); setView('qr'); }}>QR</Button>}
+                    {!s.isPayer && !s.paidAt && (s.memberId === meId || canUploadForOthers) && (
+                      <Button variant="ghost" size="sm" icon="image" onClick={() => { setUploadFor(s.memberId); window.scrollTo({ top: 0 }); document.querySelector('.modal-backdrop')?.scrollTo({ top: 0, behavior: 'smooth' }); }}>แนบสลิป</Button>
+                    )}
                   </td>
                 </tr>
               ))}

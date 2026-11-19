@@ -174,3 +174,40 @@ export function welcomeCard({ url, remindTime }) {
     footer('เปิดเว็บหารบิล', url, COLORS.green),
   );
 }
+
+/** เมนูหลัก (ตอบเมื่อพิมพ์ moomi) */
+export function menuCard({ groupName, url, dueTotal, dueBills, duePeople, remindTime }) {
+  const btn = (action, style = 'secondary') => ({
+    type: 'button', style, height: 'sm', margin: 'sm',
+    ...(style === 'primary' ? { color: COLORS.green } : {}),
+    action,
+  });
+  const link = (path) => `${url}${url.includes('?') ? '&' : '?'}tab=${path}`;
+  const hasDue = dueTotal > 0.004;
+  return {
+    type: 'bubble', size: 'mega',
+    header: header(COLORS.green, 'Moomi หารบิล', groupName || 'กลุ่ม LINE', 'บันทึกบิล ชำระผ่าน QR ตรวจสลิปอัตโนมัติ'),
+    body: box('vertical', [
+      box('horizontal', [
+        box('vertical', [
+          text('ยอดค้างชำระ', { size: 'xs', color: COLORS.mute }),
+          text(hasDue ? `${money(dueTotal)}` : 'ไม่มี', { size: 'xl', weight: 'bold', color: hasDue ? COLORS.due : COLORS.paid, margin: 'xs' }),
+          text(hasDue ? 'บาท' : 'ทุกคนชำระครบ', { size: 'xs', color: COLORS.mute }),
+        ], { flex: 1 }),
+        box('vertical', [
+          text('รอชำระ', { size: 'xs', color: COLORS.mute, align: 'end' }),
+          text(`${dueBills} บิล`, { size: 'lg', weight: 'bold', color: COLORS.ink, align: 'end', margin: 'xs' }),
+          text(`${duePeople} คน`, { size: 'xs', color: COLORS.mute, align: 'end' }),
+        ], { flex: 1 }),
+      ], { backgroundColor: '#F4F6F8', cornerRadius: '12px', paddingAll: '14px' }),
+      text('เลือกเมนูที่ต้องการ', { size: 'sm', color: COLORS.mute, margin: 'lg' }),
+    ], { paddingAll: '20px', paddingBottom: '8px' }),
+    footer: box('vertical', [
+      btn({ type: 'uri', label: 'ดูรายการบิล', uri: link('bills') }, 'primary'),
+      btn({ type: 'message', label: 'ดูยอดค้าง', text: 'ยอดค้าง' }),
+      btn({ type: 'uri', label: 'สร้างบิลใหม่', uri: link('new') }),
+      btn({ type: 'uri', label: 'สรุปยอดรายคน/ร้าน', uri: link('summary') }),
+      text(`แจ้งเตือนผู้ที่ยังไม่ชำระทุกวัน ${remindTime} น.`, { size: 'xxs', color: COLORS.mute, align: 'center', margin: 'md' }),
+    ], { paddingAll: '16px', paddingTop: '4px' }),
+  };
+}

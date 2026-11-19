@@ -25,7 +25,11 @@ export default function App() {
   const [fatal, setFatal] = useState<string | null>(null);
   const [picker, setPicker] = useState<Platform | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [tab, setTab] = useState<Tab>('bills');
+  // เปิดแท็บตามปุ่มในเมนูของบอท (?tab=bills|new|summary|account)
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = new URLSearchParams(location.search).get('tab');
+    return TABS.some((x) => x.id === t) ? (t as Tab) : 'bills';
+  });
   const [flash, setFlash] = useState<{ title: string; text?: string } | null>(null);
   const [liveTick, setLiveTick] = useState(0);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>('connecting');

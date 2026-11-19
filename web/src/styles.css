@@ -151,6 +151,7 @@ button, input, select { font: inherit; color: inherit; }
 .filters .field { flex: 1 1 150px; }
 .filters .grow { flex: 3 1 240px; }
 .filters > .btn { margin-top: 25px; }
+@media (max-width: 560px) { .filters > .btn { margin-top: 0; } }
 
 /* ---------- stats ---------- */
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -200,7 +201,14 @@ button, input, select { font: inherit; color: inherit; }
 .item-row .w-price { width: 140px; flex: none; }
 .item-no { width: 26px; height: 26px; border-radius: 50%; background: var(--line-2); display: grid; place-items: center; font-size: 13px; font-weight: 600; margin-bottom: 8px; flex: none; }
 .item-members { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; font-size: 13px; }
-@media (max-width: 520px) { .item-row { flex-wrap: wrap; } .item-row .w-price { width: calc(100% - 84px); } .item-no { display: none; } }
+/* มือถือ: ชื่อรายการเต็มบรรทัด แถวล่างเป็นราคา + ปุ่มลบ */
+@media (max-width: 560px) {
+  .item-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+  .item-row .grow { grid-column: 1 / -1; }
+  .item-row .w-price { width: auto; }
+  .item-no { display: none; }
+  .item-row .icon-btn { margin-bottom: 2px; }
+}
 
 /* ---------- uploads ---------- */
 .upload { position: relative; border: 1.5px dashed #c8cfd6; border-radius: 10px; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--mute); cursor: pointer; background: #fbfcfd; }
@@ -358,3 +366,28 @@ button, input, select { font: inherit; color: inherit; }
 @media (max-width: 400px) { .live { font-size: 0; gap: 0; } }
 .live-toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 60; width: min(520px, calc(100% - 24px)); box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15); border-radius: var(--radius); animation: toast-in 0.2s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---------- แนบสลิป ---------- */
+.slip-box { border: 1px solid var(--brand); background: #fbfefc; border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.slip-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.slip-title { font-weight: 600; font-size: 15.5px; }
+.slip-preview { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.slip-preview img { max-width: 100%; max-height: 360px; border-radius: 10px; border: 1px solid var(--line); }
+.slip-change { position: relative; overflow: hidden; }
+.slip-change input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.w-full { width: 100%; }
+
+/* ---------- ช่องวันที่ ---------- */
+.date-input { position: relative; display: block; }
+.date-input input {
+  -webkit-appearance: none; appearance: none; display: block; width: 100%;
+  min-height: 42px; color: transparent; background: #fff; cursor: pointer;
+}
+.date-input input::-webkit-datetime-edit, .date-input input::-webkit-date-and-time-value { color: transparent; }
+.date-input input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: auto; height: auto; opacity: 0; cursor: pointer; }
+.date-text { position: absolute; left: 12px; right: 40px; top: 50%; transform: translateY(-50%); pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.date-input.date-empty .date-text { color: #9aa3ad; }
+.date-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--mute); pointer-events: none; }
+.date-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); border: 0; background: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--mute); cursor: pointer; }
+.date-clear:hover { background: var(--line-2); color: var(--ink); }
+.field.has-error .date-input input { border-color: var(--danger); }

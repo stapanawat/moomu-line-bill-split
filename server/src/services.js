@@ -6,7 +6,7 @@ const DAY = 24 * 3600 * 1000;
 /** หา/สร้างกลุ่มจาก LINE groupId */
 export async function ensureGroup(lineGroupId) {
   const g = await db.getGroupByLineId(lineGroupId);
-  if (g && g.active) return g;
+  if (g && g.active && g.name) return g;
   let name = null;
   try { name = (await line.getGroupSummary(lineGroupId)).groupName; } catch { /* ไม่เป็นไร */ }
   return db.upsertGroup(lineGroupId, name);

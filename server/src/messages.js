@@ -30,10 +30,16 @@ export function welcomeMessage(url) {
   return card.flex('ระบบหารบิลพร้อมใช้งานในกลุ่มนี้ กรุณาพิมพ์ข้อความใดก็ได้หนึ่งครั้ง', card.welcomeCard({ url, remindTime: config.remind.time }));
 }
 
-export const menuMessage = (url) => ({
-  type: 'text',
-  text: `เว็บบันทึกบิลและชำระเงินของกลุ่มนี้\n${url}\n\nพิมพ์ "ยอดค้าง" เพื่อดูยอดคงค้างทั้งหมด`,
-});
+/** เมนูหลัก: การ์ดพร้อมปุ่มลัด (ตอบเมื่อพิมพ์ moomi) */
+export function menuMessage(url, { groupName, dues } = {}) {
+  const bills = dues?.bills || [];
+  const people = new Set();
+  let total = 0;
+  for (const x of bills) for (const d of x.debtors) { people.add(d.member.id); total += Number(d.amount); }
+  return card.flex('เมนู Moomi หารบิล: ดูรายการบิล ดูยอดค้าง สร้างบิลใหม่', card.menuCard({
+    groupName, url, dueTotal: round2(total), dueBills: bills.length, duePeople: people.size, remindTime: config.remind.time,
+  }));
+}
 
 /**
  * บิลใหม่

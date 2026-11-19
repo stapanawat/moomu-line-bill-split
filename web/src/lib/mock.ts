@@ -40,7 +40,10 @@ const emit = (e: LiveEvent) => listeners.forEach((l) => l({ ...e, at: Date.now()
 /** ใช้ทดสอบในโหมดตัวอย่าง: window.mockPayment('m4') = จำลองว่า Bank ส่งสลิปผ่าน */
 (window as unknown as { mockPayment: (memberId: string) => void }).mockPayment = (memberId: string) => {
   const b = bills.find((x) => x.shares.some((s) => s.memberId === memberId && !s.paidAt && !s.isPayer));
-  if (!b) return;
+  if (b) payMember(b, memberId);
+};
+
+function payMember(b: BillDetail, memberId: string) {
   const s = b.shares.find((x) => x.memberId === memberId)!;
   s.paidAt = new Date().toISOString();
   s.transRef = 'MOCKLIVE' + Date.now();
@@ -50,7 +53,8 @@ const emit = (e: LiveEvent) => listeners.forEach((l) => l({ ...e, at: Date.now()
   b.dueAmount = round2(debt.filter((x) => !x.paidAt).reduce((a, x) => a + x.amount, 0));
   if (b.paidCount === b.debtorCount) b.status = 'settled';
   emit({ type: 'payment', billIds: [b.id], memberId, message: `${byId(memberId).name} ชำระเงิน ${s.amount.toFixed(2)} บาท เรียบร้อยแล้ว` });
-};
+  return s;
+}
 let presets: MemberPreset[] = [
   { id: 'p1', name: 'แก๊งคาเฟ่', memberIds: ['m1', 'm2', 'm3', 'm4'] },
   { id: 'p2', name: 'ทริปเชียงใหม่', memberIds: ['m1', 'm2', 'm3', 'm4', 'm5'] },
@@ -176,6 +180,20 @@ export const mockApi: Api = {
     const me = byId(ME);
     Object.assign(me, { promptpayId: normalizePromptPay(p.promptpayId), bankAccount: p.bankAccount || null, accountName: p.accountName || null });
     return { ...me };
+  },
+  async uploadSlip(billId, image, memberId) {
+    await wait(1200);
+    const b = bills.find((x) => x.id === billId);
+    const who = memberId || ME;
+    const share = b?.shares.find((s) => s.memberId === who && !s.isPayer);
+    if (!b || !share) throw new ApiError(400, { code: 'no_share', message: 'สมาชิกนี้ไม่มียอดที่ต้องชำระในบิลนี้' });
+    if (share.paidAt) throw new ApiError(400, { code: 'already_paid', message: 'รายการนี้ชำระเรียบร้อยแล้ว' });
+    if (!image) throw new ApiError(400, { code: 'validation', message: 'กรุณาแนบรูปสลิป (JPG หรือ PNG)' });
+    if (new URLSearchParams(location.search).get('mockError') === 'slip') {
+      throw new ApiError(400, { code: 'slip_amount', message: 'ยอดเงินในสลิปไม่ตรงกับยอดที่ค้างชำระ (ยอดในสลิป 100.00 บาท ยอดที่ต้องชำระ 162.50 บาท)' });
+    }
+    const s = payMember(b, who);
+    return { ok: true as const, amount: s.amount, transRef: s.transRef!, announced: true };
   },
   subscribe(onEvent, onStatus) {
     listeners.add(onEvent);

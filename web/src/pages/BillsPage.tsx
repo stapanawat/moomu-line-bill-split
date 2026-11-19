@@ -1,3 +1,4 @@
+import DateInput from '../components/DateInput';
 import { useEffect, useState } from 'react';
 import { useApp, errorText } from '../context';
 import type { BillSummary } from '../types';
@@ -50,10 +51,10 @@ export default function BillsPage() {
             </div>
           </Field>
           <Field label="ตั้งแต่วันที่" error={dateError}>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <DateInput value={from} onChange={setFrom} placeholder="ทั้งหมด" />
           </Field>
           <Field label="ถึงวันที่">
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            <DateInput value={to} onChange={setTo} placeholder="ถึงปัจจุบัน" />
           </Field>
           {(q || from || to) && (
             <Button variant="ghost" onClick={() => { setQ(''); setFrom(''); setTo(''); }}>ล้างตัวกรอง</Button>

@@ -37,6 +37,8 @@ export const config = {
   },
 
   announceNewBill: bool(env.ANNOUNCE_NEW_BILL, true),
+  // แจ้งในกลุ่ม LINE เมื่อมีคนแนบสลิปผ่านเว็บแล้วตรวจผ่าน
+  announceWebSlip: bool(env.ANNOUNCE_WEB_SLIP, true),
   // LINE userId ของผู้ดูแล (คั่นด้วยจุลภาค) เห็นทุกกลุ่มที่บอทอยู่
   adminUserIds: (env.ADMIN_LINE_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean),
   devAuthUserId: env.NODE_ENV === 'production' ? '' : env.DEV_AUTH_USER_ID || '',

@@ -9,6 +9,7 @@ process.env.EASYSLIP_API_KEY = 'e';
 process.env.LIFF_ID = 'liff-1';
 
 const { handleSlip } = await import('../src/bot.js');
+const { processSlip } = await import('../src/slipflow.js');
 
 const group = { id: 'g1', line_group_id: 'Cgroup', access_key: 'key' };
 const members = [
@@ -97,4 +98,13 @@ test('จ่ายคนสุดท้าย: แจ้งว่าปิดร
   state.shares[1].paid = true;
   await handleSlip(ev('UB'), group, members[1]);
   assert.match(JSON.stringify(state.replies[0]), /ชำระครบแล้ว/);
+});
+
+test('แนบสลิปจากเว็บ: ตรวจเฉพาะบิลที่เลือก', async () => {
+  const other = await processSlip({ group, member: members[1], buffer: Buffer.from([1]), contentType: 'image/jpeg', onlyBillId: 'b-other' });
+  assert.equal(other.status, 'no_dues');
+  const ok = await processSlip({ group, member: members[1], buffer: Buffer.from([1]), contentType: 'image/jpeg', onlyBillId: 'b1' });
+  assert.equal(ok.status, 'ok');
+  assert.deepEqual(ok.billIds, ['b1']);
+  assert.equal(state.payments.length, 1);
 });

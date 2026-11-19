@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { computeShares, promptPayPayload, crc16, normalizePromptPay } from '../../shared/billing.js';
 import { matchMasked, matchName, receiverStatus, allocate, normalize } from '../src/slip.js';
 import { verifySignature, textV2, escV2 } from '../src/line.js';
-import { reminderMessages, paymentFailMessage, newBillMessage, paymentSuccessMessage, welcomeMessage } from '../src/messages.js';
+import { reminderMessages, paymentFailMessage, newBillMessage, paymentSuccessMessage, welcomeMessage, menuMessage } from '../src/messages.js';
 
 test('computeShares: หารรายการ + ค่าบริการ + ส่วนลด และผลรวมเท่ายอดบิล', () => {
   const r = computeShares([
@@ -161,7 +161,13 @@ test('การ์ดอื่น ๆ ถูกต้องตามข้อก
     ...newBillMessage({ id: 'b1', title: 'ร้าน {ทดสอบ}', bill_date: '2026-11-19', total: 300 }, 'มายด์', [{ member: mem(1), amount: 100 }, { member: mem(2), amount: 100 }], 'https://x?g=1'),
     ...paymentSuccessMessage(mem(1), { amount: 100, transRef: 'R1' }, [{ id: 'b1', title: 'A', bill_date: '2026-11-19', amount: 100, payerName: 'มายด์', shares: [{ name: 'คน1', amount: 100, status: 'paid' }, { name: 'มายด์', amount: 100, status: 'payee' }] }], 'https://x?g=1'),
     welcomeMessage('https://x'),
+    menuMessage('https://x?g=1', { groupName: 'แก๊งคาเฟ่', dues: { bills: [{ debtors: [{ member: { id: 'a' }, amount: 100 }, { member: { id: 'b' }, amount: 50.5 }] }] } }),
+    menuMessage('https://x?g=1', { groupName: 'แก๊งคาเฟ่', dues: { bills: [] } }),
   ];
+  const menu = JSON.stringify(all.at(-2));
+  assert.match(menu, /150\.50/);
+  assert.match(menu, /tab=new/);
+  assert.match(menu, /"type":"message","label":"ดูยอดค้าง","text":"ยอดค้าง"/);
   for (const m of all) { if (m.type === 'flex') checkFlex(m); noEmoji(m); }
   assert.equal(all[0].type, 'textV2');
 });
