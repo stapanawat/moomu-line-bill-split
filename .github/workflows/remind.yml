@@ -1,0 +1,16 @@
+# เรียกเซิร์ฟเวอร์ให้ทวงยอดค้างทุกวัน 18:00 น. (เวลาไทย = 11:00 UTC)
+# ตั้งค่า Secrets ใน GitHub: APP_URL (เช่น https://bill.example.com) และ CRON_SECRET
+# หมายเหตุ: GitHub อาจเรียกช้ากว่ากำหนดได้หลายนาทีในช่วงที่มีผู้ใช้มาก
+name: daily-remind
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch: {}
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder
+        run: |
+          curl -fsS -X POST "${{ secrets.APP_URL }}/cron/remind" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" --max-time 120

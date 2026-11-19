@@ -1,0 +1,13 @@
+{
+  "name": "line-bill-split-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LINE bot + API สำหรับระบบหารบิล (ไม่มี dependency ภายนอก)",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch --env-file=.env src/index.js",
+    "test": "node --test test/*.test.js"
+  }
+}

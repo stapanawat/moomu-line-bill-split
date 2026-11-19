@@ -1,0 +1,43 @@
+# Render Blueprint: New > Blueprint > เลือก repo นี้ แล้วกรอกค่าที่ถามทีละช่อง
+services:
+  - type: web
+    name: line-bill-split
+    runtime: docker
+    plan: starter            # แผนที่ไม่หลับ (แผนฟรีจะหลับ ทำให้บอทตอบสลิปไม่ทัน)
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TIMEZONE
+        value: Asia/Bangkok
+      - key: REMIND_TIME
+        value: "18:00"
+      - key: ENABLE_INTERNAL_CRON
+        value: "true"
+      - key: ANNOUNCE_NEW_BILL
+        value: "true"
+      - key: AMOUNT_OVERPAY_TOLERANCE
+        value: "1"
+      - key: SUPABASE_BUCKET
+        value: bill-files
+      - key: SLIP_PROVIDER
+        value: easyslip
+      - key: CRON_SECRET
+        generateValue: true
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_LOGIN_CHANNEL_ID
+        sync: false
+      - key: LIFF_ID
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: EASYSLIP_API_KEY
+        sync: false

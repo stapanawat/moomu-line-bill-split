@@ -1,0 +1,180 @@
+// ข้อมูลตัวอย่างสำหรับทดลองหน้าเว็บโดยไม่ต้องต่อ LINE / เซิร์ฟเวอร์ (npm run dev:mock)
+// เพิ่ม ?mockError=session หรือ ?mockError=bills ใน URL เพื่อดูหน้าตาการแจ้งข้อผิดพลาด
+import { computeShares, normalizePromptPay, round2 } from '../../../shared/billing.js';
+import { ApiError, type Api } from './api';
+import type { BillDetail, Member, MemberPreset, NewBillInput } from '../types';
+
+const wait = (ms = 350) => new Promise((r) => setTimeout(r, ms));
+const mockError = new URLSearchParams(location.search).get('mockError');
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+const daysAgo = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+
+function receiptSvg(title: string, items: { name: string; price: number }[], total: number) {
+  const rows = items.map((it, i) =>
+    `<text x="40" y="${200 + i * 44}" font-size="26">${it.name}</text><text x="560" y="${200 + i * 44}" font-size="26" text-anchor="end">${it.price.toFixed(2)}</text>`).join('');
+  const h = 330 + items.length * 44;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="${h}" font-family="monospace"><rect width="600" height="${h}" fill="#fffef9"/><text x="300" y="80" font-size="32" text-anchor="middle" font-weight="bold">${title}</text><text x="300" y="118" font-size="20" text-anchor="middle" fill="#777">ใบเสร็จรับเงิน (ตัวอย่าง)</text><line x1="40" y1="148" x2="560" y2="148" stroke="#999" stroke-dasharray="6"/>${rows}<line x1="40" y1="${h - 110}" x2="560" y2="${h - 110}" stroke="#999" stroke-dasharray="6"/><text x="40" y="${h - 60}" font-size="30" font-weight="bold">รวม</text><text x="560" y="${h - 60}" font-size="30" text-anchor="end" font-weight="bold">${total.toFixed(2)}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+function slipSvg(from: string, to: string, amount: number, ref: string) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="820" font-family="sans-serif"><rect width="600" height="820" fill="#f5f8fd"/><rect width="600" height="150" fill="#1f4e8c"/><text x="300" y="92" fill="#fff" font-size="38" text-anchor="middle" font-weight="bold">โอนเงินสำเร็จ</text><text x="50" y="240" font-size="24" fill="#666">จาก</text><text x="50" y="282" font-size="32">${from}</text><text x="50" y="360" font-size="24" fill="#666">ไปยัง</text><text x="50" y="402" font-size="32">${to}</text><text x="50" y="480" font-size="24" fill="#666">จำนวนเงิน</text><text x="50" y="540" font-size="52" font-weight="bold" fill="#1f4e8c">${amount.toFixed(2)} บาท</text><text x="50" y="640" font-size="22" fill="#888">เลขอ้างอิง ${ref}</text><text x="300" y="790" font-size="20" text-anchor="middle" fill="#aaa">สลิปตัวอย่าง</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+const members: Member[] = [
+  { id: 'm1', name: 'มายด์', promptpayId: '0812345678' },
+  { id: 'm2', name: 'Fern', promptpayId: '0898765432' },
+  { id: 'm3', name: 'ต้นกล้า' },
+  { id: 'm4', name: 'Bank', promptpayId: '0861112233' },
+  { id: 'm5', name: 'แพรว' },
+  { id: 'm6', name: 'โอ๊ต' },
+];
+const ME = 'm3';
+const byId = (id: string) => members.find((m) => m.id === id)!;
+
+let seq = 10;
+let presets: MemberPreset[] = [
+  { id: 'p1', name: 'แก๊งคาเฟ่', memberIds: ['m1', 'm2', 'm3', 'm4'] },
+  { id: 'p2', name: 'ทริปเชียงใหม่', memberIds: ['m1', 'm2', 'm3', 'm4', 'm5'] },
+];
+const bills: BillDetail[] = [];
+
+function addBill(input: NewBillInput, paid: string[] = [], daysOld = 0): BillDetail {
+  const calc = computeShares(input.items, input.servicePct, input.discount);
+  const id = `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`;
+  const shares = Object.entries(calc.shares).map(([memberId, amount]) => {
+    const isPayer = memberId === input.payerId;
+    const isPaid = isPayer || paid.includes(memberId);
+    const ref = `MOCK${seq}${memberId.toUpperCase()}`;
+    return {
+      memberId, amount, isPayer,
+      paidAt: isPaid ? new Date().toISOString() : null,
+      slipUrl: isPaid && !isPayer ? slipSvg(byId(memberId).name, byId(input.payerId).name, amount, ref) : null,
+      transRef: isPaid && !isPayer ? ref : null,
+    };
+  });
+  const debt = shares.filter((s) => !s.isPayer);
+  const bill: BillDetail = {
+    id, title: input.title, date: input.date, total: calc.total, payerId: input.payerId,
+    status: debt.every((s) => s.paidAt) ? 'settled' : 'open',
+    debtorCount: debt.length, paidCount: debt.filter((s) => s.paidAt).length,
+    dueAmount: round2(debt.filter((s) => !s.paidAt).reduce((a, s) => a + s.amount, 0)),
+    hasReceipt: Boolean(input.receiptImage), itemNames: input.items.map((i) => i.name),
+    memberIds: shares.map((s) => s.memberId),
+    promptpayId: normalizePromptPay(input.promptpayId), servicePct: input.servicePct, discount: input.discount,
+    receiptUrl: input.receiptImage || null, qrUrl: input.qrImage || null,
+    createdAt: new Date(Date.now() - daysOld * 864e5).toISOString(),
+    items: input.items, shares,
+  };
+  bills.unshift(bill);
+  return bill;
+}
+
+(function seed() {
+  const a = [
+    { name: 'ลาเต้เย็น', price: 120, memberIds: ['m1'] }, { name: 'อเมริกาโน่', price: 95, memberIds: ['m2'] },
+    { name: 'มัทฉะลาเต้', price: 135, memberIds: ['m3'] }, { name: 'ครัวซองต์', price: 110, memberIds: ['m1', 'm2', 'm3', 'm4'] },
+    { name: 'ช็อกโกแลตเย็น', price: 115, memberIds: ['m4'] },
+  ];
+  const b = [
+    { name: 'ข้าวซอยไก่ x3', price: 240, memberIds: ['m1', 'm3', 'm5'] }, { name: 'ข้าวซอยเนื้อ', price: 90, memberIds: ['m2'] },
+    { name: 'ข้าวซอยหมู', price: 80, memberIds: ['m4'] }, { name: 'ไส้อั่ว', price: 150, memberIds: ['m1', 'm2', 'm3', 'm4', 'm5'] },
+  ];
+  const c = [
+    { name: 'Eggs Benedict', price: 280, memberIds: ['m2'] }, { name: 'Pancake', price: 220, memberIds: ['m5'] },
+    { name: 'Big Breakfast', price: 320, memberIds: ['m6'] }, { name: 'Cold Brew x3', price: 270, memberIds: ['m2', 'm5', 'm6'] },
+  ];
+  addBill({ title: 'Brunch Café Ari', date: daysAgo(6), payerId: 'm2', promptpayId: '0898765432', servicePct: 0, discount: 50, items: c, receiptImage: receiptSvg('Brunch Cafe Ari', c, 1040) }, ['m5', 'm6'], 6);
+  addBill({ title: 'ทริปเชียงใหม่ มื้อเย็น', date: daysAgo(1), payerId: 'm4', promptpayId: '0861112233', servicePct: 10, discount: 0, items: b, receiptImage: receiptSvg('Khao Soi House', b, 616) }, ['m1', 'm5'], 1);
+  addBill({ title: 'Roast Coffee นิมมาน', date: daysAgo(0), payerId: 'm1', promptpayId: '0812345678', servicePct: 0, discount: 0, items: a, receiptImage: receiptSvg('Roast Coffee', a, 575) }, ['m2'], 0);
+})();
+
+const summaryOf = (b: BillDetail) => {
+  const { promptpayId, servicePct, discount, receiptUrl, qrUrl, createdAt, items, shares, ...s } = b;
+  void promptpayId; void servicePct; void discount; void receiptUrl; void qrUrl; void createdAt; void items; void shares;
+  return s;
+};
+
+export const mockApi: Api = {
+  async session() {
+    await wait();
+    if (mockError === 'session') throw new ApiError(403, { code: 'not_member', message: 'ไม่พบชื่อของท่านในกลุ่มนี้ กรุณาพิมพ์ข้อความใดก็ได้ในกลุ่ม LINE หนึ่งครั้ง แล้วเปิดเว็บใหม่' });
+    return { group: { name: 'แก๊งคาเฟ่ฮอปปิ้ง (ตัวอย่าง)' }, me: byId(ME), members: [...members], remindTime: '18:00' };
+  },
+  async listBills({ q, from, to }) {
+    await wait();
+    if (mockError === 'bills') throw new ApiError(0, { code: 'network', message: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง' });
+    const t = (q || '').toLowerCase();
+    return bills
+      .filter((b) => (!from || b.date >= from) && (!to || b.date <= to))
+      .filter((b) => !t || [b.title, ...b.itemNames, ...b.memberIds.map((id) => byId(id).name)].join(' ').toLowerCase().includes(t))
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .map(summaryOf);
+  },
+  async getBill(id) {
+    await wait(250);
+    const b = bills.find((x) => x.id === id);
+    if (!b) throw new ApiError(404, { code: 'bill_not_found', message: 'ไม่พบรายการนี้' });
+    return structuredClone(b);
+  },
+  async createBill(input) {
+    await wait(600);
+    const fields: Record<string, string> = {};
+    if (!input.title.trim()) fields.title = 'กรุณาระบุชื่อรายการหรือชื่อร้าน';
+    if (!input.promptpayId && !input.qrImage) fields.promptpayId = 'กรุณาระบุเลขพร้อมเพย์ หรือแนบรูป QR สำหรับรับเงิน';
+    else if (input.promptpayId && !normalizePromptPay(input.promptpayId)) fields.promptpayId = 'เลขพร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลัก';
+    if (!input.items.length) fields.items = 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ';
+    if (Object.keys(fields).length) throw new ApiError(400, { code: 'validation', message: 'กรุณาตรวจสอบข้อมูลให้ครบถ้วน', fields });
+    const b = addBill({ ...input, receiptImage: input.receiptImage });
+    return { id: b.id, announced: true };
+  },
+  async summary({ from, to }) {
+    await wait();
+    const per = new Map<string, { memberId: string; total: number; paid: number; due: number; dueBills: { billId: string; title: string; date: string; amount: number; payerName: string }[] }>();
+    for (const b of bills.filter((x) => (!from || x.date >= from) && (!to || x.date <= to))) {
+      for (const s of b.shares) {
+        if (s.isPayer) continue;
+        const r = per.get(s.memberId) || { memberId: s.memberId, total: 0, paid: 0, due: 0, dueBills: [] };
+        r.total += s.amount;
+        if (s.paidAt) r.paid += s.amount;
+        else { r.due += s.amount; r.dueBills.push({ billId: b.id, title: b.title, date: b.date, amount: s.amount, payerName: byId(b.payerId).name }); }
+        per.set(s.memberId, r);
+      }
+    }
+    const rows = [...per.values()].map((r) => ({ ...r, total: round2(r.total), paid: round2(r.paid), due: round2(r.due) })).sort((a, b) => b.due - a.due);
+    const sum = (k: 'total' | 'paid' | 'due') => round2(rows.reduce((a, r) => a + r[k], 0));
+    const list = bills.filter((x) => (!from || x.date >= from) && (!to || x.date <= to)).map((b) => ({
+      id: b.id, title: b.title, date: b.date, total: b.total, payerId: b.payerId,
+      shares: b.shares.map((s) => ({ memberId: s.memberId, amount: s.amount, paid: Boolean(s.paidAt), isPayer: s.isPayer })),
+    }));
+    return { rows, totals: { total: sum('total'), paid: sum('paid'), due: sum('due') }, bills: list };
+  },
+  async updatePayment(p) {
+    await wait();
+    if (p.promptpayId && !normalizePromptPay(p.promptpayId)) {
+      throw new ApiError(400, { code: 'validation', message: 'กรุณาตรวจสอบข้อมูลบัญชีรับเงิน', fields: { promptpayId: 'เลขพร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลัก' } });
+    }
+    const me = byId(ME);
+    Object.assign(me, { promptpayId: normalizePromptPay(p.promptpayId), bankAccount: p.bankAccount || null, accountName: p.accountName || null });
+    return { ...me };
+  },
+  async listPresets() { await wait(200); return presets.map((p) => ({ ...p })); },
+  async savePreset({ name, memberIds }) {
+    await wait(300);
+    const fields: Record<string, string> = {};
+    if (!name.trim()) fields.name = 'กรุณาตั้งชื่อชุดรายชื่อ';
+    if (memberIds.length < 2) fields.memberIds = 'ชุดรายชื่อต้องมีสมาชิกอย่างน้อย 2 คน';
+    if (Object.keys(fields).length) throw new ApiError(400, { code: 'validation', message: 'ไม่สามารถบันทึกชุดรายชื่อได้', fields });
+    const existing = presets.find((p) => p.name === name.trim());
+    if (existing) { existing.memberIds = [...memberIds]; return { ...existing }; }
+    const p = { id: 'p' + Date.now(), name: name.trim(), memberIds: [...memberIds] };
+    presets = [...presets, p].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+    return p;
+  },
+  async deletePreset(id) { await wait(200); presets = presets.filter((p) => p.id !== id); },
+  async syncMembers() {
+    await wait(700);
+    if (!members.find((m) => m.id === 'm7')) members.push({ id: 'm7', name: 'Nook' });
+    return { members: [...members], fullList: false };
+  },
+};

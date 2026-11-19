@@ -1,0 +1,13 @@
+{
+  "name": "line-bill-split",
+  "private": true,
+  "description": "ไฟล์รวมคำสั่ง: รัน npm ที่โฟลเดอร์นี้ได้เลย (ส่งต่อไปยัง web/ และ server/)",
+  "scripts": {
+    "postinstall": "npm install --prefix web",
+    "dev": "npm run dev --prefix web",
+    "dev:mock": "npm run dev:mock --prefix web",
+    "build": "npm run build --prefix web",
+    "start": "npm start --prefix server",
+    "test": "npm test --prefix server"
+  }
+}
