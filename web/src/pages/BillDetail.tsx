@@ -188,7 +188,7 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
       <section>
         <h3 className="section-title">สถานะการชำระ</h3>
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-status">
             <thead><tr><th>สมาชิก</th><th className="num">ยอด (บาท)</th><th>สถานะ</th><th /></tr></thead>
             <tbody>
               {bill.shares.map((s) => (
@@ -196,7 +196,7 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
                   <td><Person member={member(s.memberId)} size={24} /></td>
                   <td className="num">{baht(s.amount)}</td>
                   <td>{s.isPayer ? <Badge kind="neutral">ผู้รับเงิน</Badge> : s.paidAt ? <Badge kind="success">ชำระแล้ว</Badge> : <Badge kind="danger">รอชำระ</Badge>}</td>
-                  <td className="num">
+                  <td className="num td-actions">
                     {s.slipUrl && <Button variant="ghost" size="sm" icon="image" onClick={() => setView(`slip:${s.memberId}`)}>ดูสลิป</Button>}
                     {!cancelled && !s.isPayer && !s.paidAt && <Button variant="ghost" size="sm" icon="qr" onClick={() => { setTarget(s.memberId); setView('qr'); }}>QR</Button>}
                     {!cancelled && !s.isPayer && !s.paidAt && (s.memberId === meId || canUploadForOthers) && (

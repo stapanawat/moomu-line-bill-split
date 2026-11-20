@@ -552,3 +552,30 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 @media (max-width: 400px) { .pay-choice { grid-template-columns: 1fr; } }
 .final-summary { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 10px; }
 .final-summary .total { font-size: 17px; color: var(--brand-ink); border-top: 1px solid var(--line); margin-top: 4px; padding-top: 10px; }
+
+/* ================= มือถือ: กันหน้าเลื่อนซ้ายขวา / ซูมเอง ================= */
+html, body { overflow-x: clip; max-width: 100%; }
+body { overscroll-behavior-y: none; }
+.modal-backdrop { overscroll-behavior: contain; }
+img, svg, video, canvas { max-width: 100%; }
+/* iOS ซูมหน้าจอเองเมื่อแตะช่องกรอกที่ตัวอักษรเล็กกว่า 16px แล้วหน้าจะเลื่อนไปมาได้ */
+@media (pointer: coarse), (max-width: 600px) {
+  input, select, textarea, .field input, .field select { font-size: 16px; }
+}
+.table td { overflow-wrap: anywhere; }
+
+/* ตารางสถานะการชำระ: บนจอแคบแสดงเป็นแถวซ้อน ไม่ต้องเลื่อนซ้ายขวา */
+@media (max-width: 560px) {
+  .table-status thead { display: none; }
+  .table-status, .table-status tbody, .table-status tfoot { display: block; width: 100%; }
+  .table-status tr { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; row-gap: 6px; padding: 10px 2px; border-bottom: 1px solid var(--line-2); }
+  .table-status td { display: block; padding: 0; border: 0; text-align: left; }
+  .table-status td.num { text-align: right; }
+  .table-status td:nth-child(3) { grid-column: 1; }
+  .table-status td.td-actions { grid-column: 2; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .table-status td.td-actions:empty { display: none; }
+  .table-status tfoot tr { grid-template-columns: 1fr auto auto; border-bottom: 0; }
+  .table-status tfoot td:nth-child(3) { grid-column: auto; }
+}
+.table th, .table tfoot td { background: #fdf7f0; }
+@media (max-width: 560px) { .table-status tfoot tr { background: #fdf7f0; border-radius: 12px; padding: 10px 12px; } .table-status tfoot td { background: none; } }
