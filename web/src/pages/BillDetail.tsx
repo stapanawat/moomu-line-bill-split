@@ -4,7 +4,7 @@ import { promptPayPayload } from '../../../shared/billing.js';
 import { useApp, errorText } from '../context';
 import type { BillDetail } from '../types';
 import { baht, maskPromptPay, thDate } from '../lib/format';
-import { Alert, Badge, Button, Empty, Loading, Modal, Person, Segmented, dueSticker } from '../components/ui';
+import { Alert, Avatar, AvatarStack, Button, Empty, Icon, Modal, Money, PaidTrack, Person, Segmented, SkeletonRows, dueSticker, useFreshKeys } from '../components/ui';
 import { StatusBadge } from './BillsPage';
 import SlipUploader from '../components/SlipUploader';
 
@@ -44,7 +44,7 @@ export default function BillDetailModal({ id, onClose }: { id: string; onClose: 
       {error && (
         <Alert kind="error" title="ไม่สามารถโหลดรายละเอียดบิลได้" action={<Button variant="secondary" size="sm" icon="refresh" onClick={() => setReload((r) => r + 1)}>ลองใหม่</Button>}>{error}</Alert>
       )}
-      {!bill && !error && <Loading />}
+      {!bill && !error && <SkeletonRows rows={5} label="กำลังโหลดรายละเอียดบิล" />}
       {bill && <Body bill={bill} view={view} setView={setView} target={target} setTarget={setTarget} meId={session.me.id} member={member} reload={() => setReload((r) => r + 1)} />}
     </Modal>
   );
@@ -77,17 +77,24 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
   const uploadShare = uploadFor ? bill.shares.find((s) => s.memberId === uploadFor) : undefined;
   const payer = member(bill.payerId);
   const myShare = bill.shares.find((s) => s.memberId === meId);
-  const debtors = bill.shares.filter((s) => !s.isPayer);
+  const fresh = useFreshKeys(bill.shares.filter((s) => s.paidAt).map((s) => s.memberId));
   const slipOf = view.startsWith('slip:') ? bill.shares.find((s) => `slip:${s.memberId}` === view) : undefined;
 
   return (
     <div className="detail">
-      <div className="detail-head">
-        <div className="kv"><span>วันที่</span><b>{thDate(bill.date, true)}</b></div>
-        <div className="kv"><span>ผู้รับเงิน</span><b>{payer?.name ?? '-'}</b></div>
-        <div className="kv"><span>ยอดรวม</span><b>{baht(bill.total)} บาท</b></div>
-        <div className="kv"><span>สถานะ</span><StatusBadge b={bill} /></div>
-      </div>
+      <header className="detail-hero">
+        <span className="kicker">{thDate(bill.date, true)}</span>
+        <div className="hero-figure"><Money value={bill.total} /><small>บาท</small></div>
+        <div className="detail-hero-row">
+          <Person member={payer} size={22} suffix={<span className="muted"> รับเงิน{bill.promptpayId ? ` · ${maskPromptPay(bill.promptpayId)}` : ''}</span>} />
+          {cancelled ? <StatusBadge b={bill} /> : (
+            <span className={`bill-progress ${bill.paidCount >= bill.debtorCount ? 'is-done' : ''}`}>
+              <PaidTrack paid={bill.paidCount} total={bill.debtorCount} />
+              <span>{bill.paidCount >= bill.debtorCount ? 'ชำระครบ' : `ชำระแล้ว ${bill.paidCount}/${bill.debtorCount}`}</span>
+            </span>
+          )}
+        </div>
+      </header>
 
       {cancelled && (
         <Alert kind="warning" title="บิลนี้ถูกยกเลิกแล้ว">
@@ -96,7 +103,7 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
       )}
       {bill.canManage && !confirmCancel && (
         <div className="manage-bar">
-          <span className="muted">ท่านเป็นผู้สร้างบิลนี้</span>
+          <span className="muted">ท่านจัดการบิลนี้ได้</span>
           <div className="manage-actions">
             <Button variant="secondary" size="sm" icon="edit" onClick={() => startEdit(bill)}>แก้ไขบิล</Button>
             <Button variant="danger-ghost" size="sm" icon="trash" onClick={() => setConfirmCancel(true)}>ยกเลิกบิล</Button>
@@ -162,55 +169,50 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
         )}
       </div>
 
-      <section>
-        <h3 className="section-title">รายการ</h3>
-        <div className="table-wrap">
-          <table className="table">
-            <thead><tr><th>รายการ</th><th>ผู้ร่วมจ่าย</th><th className="num">ราคา (บาท)</th></tr></thead>
-            <tbody>
-              {bill.items.map((it, i) => (
-                <tr key={i}>
-                  <td>{it.name}</td>
-                  <td className="muted">{it.memberIds.map((m) => member(m)?.name).join(', ')}</td>
-                  <td className="num">{baht(it.price)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              {bill.servicePct > 0 && <tr><td colSpan={2}>ค่าบริการ / ภาษี</td><td className="num">{bill.servicePct}%</td></tr>}
-              {bill.discount > 0 && <tr><td colSpan={2}>ส่วนลด</td><td className="num">-{baht(bill.discount)}</td></tr>}
-              <tr className="total-row"><td colSpan={2}>ยอดรวม</td><td className="num">{baht(bill.total)}</td></tr>
-            </tfoot>
-          </table>
-        </div>
+      <section className="detail-section">
+        <h3 className="section-title">รายการ <span className="muted">{bill.items.length}</span></h3>
+        <ul className="ledger">
+          {bill.items.map((it, i) => (
+            <li key={i} className="ledger-row">
+              <span className="ledger-name">{it.name}</span>
+              <AvatarStack members={it.memberIds.map((m) => member(m))} size={20} />
+              <Money value={it.price} className="ledger-amt" />
+            </li>
+          ))}
+        </ul>
+        <dl className="ledger-foot">
+          {bill.servicePct > 0 && <div><dt>ค่าบริการ / ภาษี</dt><dd className="money">{bill.servicePct}%</dd></div>}
+          {bill.discount > 0 && <div><dt>ส่วนลด</dt><dd className="money">-{baht(bill.discount)}</dd></div>}
+          <div className="ledger-total"><dt>ยอดรวม</dt><dd><Money value={bill.total} /></dd></div>
+        </dl>
       </section>
 
-      <section>
-        <h3 className="section-title">สถานะการชำระ</h3>
-        <div className="table-wrap">
-          <table className="table table-status">
-            <thead><tr><th>สมาชิก</th><th className="num">ยอด (บาท)</th><th>สถานะ</th><th /></tr></thead>
-            <tbody>
-              {bill.shares.map((s) => (
-                <tr key={s.memberId} className={s.memberId === meId ? 'row-me' : ''}>
-                  <td><Person member={member(s.memberId)} size={24} /></td>
-                  <td className="num">{baht(s.amount)}</td>
-                  <td>{s.isPayer ? <Badge kind="neutral">ผู้รับเงิน</Badge> : s.paidAt ? <Badge kind="success">ชำระแล้ว</Badge> : <Badge kind="danger">รอชำระ</Badge>}</td>
-                  <td className="num td-actions">
-                    {s.slipUrl && <Button variant="ghost" size="sm" icon="image" onClick={() => setView(`slip:${s.memberId}`)}>ดูสลิป</Button>}
-                    {!cancelled && !s.isPayer && !s.paidAt && <Button variant="ghost" size="sm" icon="qr" onClick={() => { setTarget(s.memberId); setView('qr'); }}>QR</Button>}
-                    {!cancelled && !s.isPayer && !s.paidAt && (s.memberId === meId || canUploadForOthers) && (
-                      <Button variant="ghost" size="sm" icon="image" onClick={() => { setUploadFor(s.memberId); window.scrollTo({ top: 0 }); document.querySelector('.modal-backdrop')?.scrollTo({ top: 0, behavior: 'smooth' }); }}>แนบสลิป</Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="total-row"><td>คงค้าง</td><td className="num">{baht(bill.dueAmount)}</td><td colSpan={2}>{debtors.filter((s) => !s.paidAt).length} คน</td></tr>
-            </tfoot>
-          </table>
-        </div>
+      <section className="detail-section">
+        <h3 className="section-title">สถานะการชำระ <span className="muted">คงค้าง <Money value={bill.dueAmount} tone={bill.dueAmount > 0.004 ? 'due' : 'paid'} /></span></h3>
+        <ul className="share-list">
+          {bill.shares.map((s) => {
+            const state = s.isPayer ? 'payer' : s.paidAt ? 'paid' : 'due';
+            return (
+              <li key={s.memberId} className={`share-row share-${state} ${s.memberId === meId ? 'is-me' : ''} ${fresh.has(s.memberId) ? 'just-paid' : ''}`}>
+                <Avatar member={member(s.memberId)} size={32} ring />
+                <span className="share-who">
+                  <span className="share-name">{member(s.memberId)?.name ?? 'ไม่ทราบชื่อ'}{s.memberId === meId && <span className="muted"> (ท่าน)</span>}</span>
+                  <span className={`share-state state-${state}`}>
+                    {state === 'payer' ? 'ผู้รับเงิน' : state === 'paid' ? <><Icon name="check" size={14} />ชำระแล้ว</> : 'รอชำระ'}
+                  </span>
+                </span>
+                <Money value={s.amount} className="share-amt" tone={state === 'due' ? 'due' : undefined} />
+                <span className="share-actions">
+                  {s.slipUrl && <Button variant="ghost" size="sm" icon="image" onClick={() => setView(`slip:${s.memberId}`)}>ดูสลิป</Button>}
+                  {!cancelled && !s.isPayer && !s.paidAt && <Button variant="ghost" size="sm" icon="qr" onClick={() => { setTarget(s.memberId); setView('qr'); }}>QR</Button>}
+                  {!cancelled && !s.isPayer && !s.paidAt && (s.memberId === meId || canUploadForOthers) && (
+                    <Button variant="ghost" size="sm" icon="image" onClick={() => { setUploadFor(s.memberId); window.scrollTo({ top: 0 }); document.querySelector('.modal-backdrop')?.scrollTo({ top: 0, behavior: 'smooth' }); }}>แนบสลิป</Button>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </section>
     </div>
   );
@@ -256,7 +258,7 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
         <Alert kind="warning" title="ยังไม่มีช่องทางรับเงิน">ผู้รับเงินยังไม่ได้ระบุเลขพร้อมเพย์หรือแนบรูป QR ในรายการนี้</Alert>
       ) : (
         <div className="qr-card">
-          <div className="qr-brand">PromptPay</div>
+          <div className="qr-brand">PromptPay <span>Thai QR Payment</span></div>
           {bill.promptpayId ? (
             img ? <img className="qr-image" src={img} alt={`QR พร้อมเพย์ ยอด ${share ? baht(share.amount) : ''} บาท`} />
               : qrError ? <Alert kind="error" title="สร้าง QR ไม่สำเร็จ">{qrError}</Alert>
@@ -264,7 +266,7 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
           ) : (
             <img className="qr-image" src={bill.qrUrl!} alt="QR รับเงิน" />
           )}
-          <div className="qr-amount">{share ? baht(share.amount) : '-'} <small>บาท</small></div>
+          <div className="qr-amount">{share ? <Money value={share.amount} /> : '-'} <small>บาท</small></div>
           <div className="qr-info">
             <div>ผู้รับเงิน <b>{payer?.name}</b>{bill.promptpayId && <> ({maskPromptPay(bill.promptpayId)})</>}</div>
             <div>ผู้ชำระ <b>{member(target)?.name}</b></div>

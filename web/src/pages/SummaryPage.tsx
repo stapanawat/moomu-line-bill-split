@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp, errorText } from '../context';
 import type { Summary, SummaryBill } from '../types';
 import { baht, thDate } from '../lib/format';
-import { Alert, Avatar, Badge, Button, Empty, Field, Icon, Loading, Person, Segmented } from '../components/ui';
+import { Alert, Avatar, Badge, Button, Empty, Field, Icon, Meter, Money, Person, Segmented, SkeletonRows } from '../components/ui';
 
 type View = 'person' | 'store';
 
@@ -20,6 +20,7 @@ export default function SummaryPage() {
   const [data, setData] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [showDates, setShowDates] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -78,20 +79,26 @@ export default function SummaryPage() {
 
   return (
     <div className="stack">
-      <section className="card">
-        <div className="filters">
+      <div className="toolbar">
+        <div className="search">
+          <Icon name="search" />
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder={view === 'person' ? 'ค้นหาชื่อสมาชิกหรือร้าน' : 'ค้นหาร้านหรือชื่อสมาชิก'} aria-label="ค้นหา" />
+        </div>
+        <button type="button" className={`tool-btn ${showDates || from || to ? 'on' : ''}`} aria-expanded={showDates} onClick={() => setShowDates((v) => !v)}>
+          <Icon name="calendar" /><span>ช่วงวันที่</span>{(from || to) && <span className="tool-dot" aria-label="มีตัวกรองวันที่" />}
+        </button>
+      </div>
+      {showDates && (
+        <div className="date-range reveal">
           <Field label="ตั้งแต่วันที่" error={from && to && from > to ? 'วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด' : undefined}>
             <DateInput value={from} onChange={setFrom} placeholder="ทั้งหมด" />
           </Field>
           <Field label="ถึงวันที่"><DateInput value={to} onChange={setTo} placeholder="ถึงปัจจุบัน" /></Field>
-          <Field label={view === 'person' ? 'ค้นหาชื่อสมาชิกหรือร้าน' : 'ค้นหาร้านหรือชื่อสมาชิก'} className="grow">
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="พิมพ์คำค้นหา" />
-          </Field>
         </div>
-      </section>
+      )}
 
       {error && <Alert kind="error" title="ไม่สามารถโหลดสรุปยอดได้" action={<Button variant="secondary" size="sm" icon="refresh" onClick={() => setReload((r) => r + 1)}>ลองใหม่</Button>}>{error}</Alert>}
-      {!data && !error && <Loading />}
+      {!data && !error && <SkeletonRows rows={5} label="กำลังโหลดสรุปยอด" />}
 
       {data && (
         <>
@@ -101,11 +108,18 @@ export default function SummaryPage() {
             </Alert>
           )}
 
-          <div className="stats">
-            <div className="stat"><div className="stat-k">ยอดที่ต้องชำระทั้งหมด</div><div className="stat-v">{baht(data.totals.total)}</div></div>
-            <div className="stat"><div className="stat-k">ชำระแล้ว</div><div className="stat-v text-success">{baht(data.totals.paid)}</div></div>
-            <div className="stat"><div className="stat-k">คงค้าง</div><div className="stat-v text-danger">{baht(data.totals.due)}</div></div>
-          </div>
+          <section className="ledger-hero" aria-label="ภาพรวมยอด">
+            <div className="ledger-hero-main">
+              <span className="kicker">{data.totals.due > 0.004 ? 'คงค้างทั้งกลุ่ม' : 'ไม่มียอดค้าง'}</span>
+              <div className={`hero-figure ${data.totals.due > 0.004 ? 'is-due' : 'is-clear'}`}><Money value={data.totals.due} /><small>บาท</small></div>
+            </div>
+            <Meter value={data.totals.paid} max={data.totals.total} label="สัดส่วนที่ชำระแล้ว" />
+            <dl className="hero-facts">
+              <div><dt>ยอดที่ต้องชำระทั้งหมด</dt><dd><Money value={data.totals.total} /></dd></div>
+              <div><dt>ชำระแล้ว</dt><dd><Money value={data.totals.paid} tone="paid" /></dd></div>
+              <div><dt>สมาชิกที่ยังค้าง</dt><dd className="money">{data.rows.filter((r) => r.due > 0.004).length}</dd></div>
+            </dl>
+          </section>
 
           <div className="view-bar">
             <Segmented<View> value={view} onChange={setView} options={[
@@ -124,14 +138,15 @@ export default function SummaryPage() {
                 {people.map((r) => (
                   <details key={r.memberId} className={`group-card ${r.memberId === session.me.id ? 'is-me' : ''}`} open={r.due > 0.004}>
                     <summary className="group-head">
-                      <Avatar member={member(r.memberId)} size={36} />
+                      <Avatar member={member(r.memberId)} size={40} ring />
                       <div className="group-title">
                         <div className="group-name">{name(r.memberId)}{r.memberId === session.me.id && <span className="muted"> (ท่าน)</span>}</div>
                         <div className="group-sub">{r.bills.length} รายการ · ชำระแล้ว {baht(r.paid)} จาก {baht(r.total)}</div>
+                        <Meter value={r.paid} max={r.total} label={`${name(r.memberId)} ชำระแล้ว ${baht(r.paid)} จาก ${baht(r.total)} บาท`} />
                       </div>
                       <div className="group-amount">
                         <span className="group-amount-k">คงค้าง</span>
-                        <span className={r.due > 0.004 ? 'text-danger' : 'text-success'}>{r.due > 0.004 ? baht(r.due) : 'ครบแล้ว'}</span>
+                        {r.due > 0.004 ? <Money value={r.due} tone="due" /> : <span className="text-success">ครบแล้ว</span>}
                       </div>
                       <span className="group-chevron"><Icon name="chevron" /></span>
                     </summary>
@@ -143,7 +158,7 @@ export default function SummaryPage() {
                             <div className="line-sub">{thDate(bill.date)} · ชำระให้ {name(bill.payerId)}</div>
                           </div>
                           <div className="line-right">
-                            <div className="line-amount">{baht(amount)}</div>
+                            <Money value={amount} className="line-amount" />
                             {paid ? <Badge kind="success">ชำระแล้ว</Badge> : <Badge kind="danger">รอชำระ</Badge>}
                           </div>
                         </li>
@@ -166,7 +181,7 @@ export default function SummaryPage() {
                       </div>
                       <div className="group-amount">
                         <span className="group-amount-k">คงค้าง</span>
-                        <span className={s.due > 0.004 ? 'text-danger' : 'text-success'}>{s.due > 0.004 ? baht(s.due) : 'ครบแล้ว'}</span>
+                        {s.due > 0.004 ? <Money value={s.due} tone="due" /> : <span className="text-success">ครบแล้ว</span>}
                       </div>
                       <span className="group-chevron"><Icon name="chevron" /></span>
                     </summary>
@@ -184,7 +199,7 @@ export default function SummaryPage() {
                               <li key={x.memberId} className="line line-member">
                                 <div className="line-main"><Person member={member(x.memberId)} size={36} /></div>
                                 <div className="line-right">
-                                  <div className="line-amount">{baht(x.amount)}</div>
+                                  <Money value={x.amount} className="line-amount" />
                                   {x.isPayer ? <Badge kind="neutral">ผู้รับเงิน</Badge> : x.paid ? <Badge kind="success">ชำระแล้ว</Badge> : <Badge kind="danger">รอชำระ</Badge>}
                                 </div>
                               </li>

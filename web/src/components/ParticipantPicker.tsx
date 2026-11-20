@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useApp, errorText } from '../context';
 import { ApiError } from '../lib/api';
 import type { MemberPreset } from '../types';
-import { Alert, Avatar, Button, Icon } from './ui';
+import { Alert, Avatar, AvatarStack, Button, Icon, memberColor } from './ui';
 
 interface Recent { key: string; label: string; memberIds: string[] }
 
@@ -12,6 +12,7 @@ export default function ParticipantPicker({ people, setPeople, payerId, error }:
 }) {
   const { api, session, setMembers, liveTick } = useApp();
   const known = new Set(session.members.map((m) => m.id));
+  const byId = new Map(session.members.map((m) => [m.id, m]));
   const [presets, setPresets] = useState<MemberPreset[]>([]);
   const [recent, setRecent] = useState<Recent[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -130,7 +131,7 @@ export default function ParticipantPicker({ people, setPeople, payerId, error }:
               <div key={p.id} className={`preset ${sameAs(p.memberIds) ? 'on' : ''}`}>
                 <button type="button" className="preset-main" onClick={() => apply(p.memberIds, p.name)} disabled={manage}>
                   <span className="preset-name">{p.name}</span>
-                  <span className="preset-sub">{p.memberIds.filter((id) => known.has(id)).length} คน</span>
+                  <span className="preset-sub"><AvatarStack members={p.memberIds.filter((id) => known.has(id)).map((id) => byId.get(id))} size={18} max={4} />{p.memberIds.filter((id) => known.has(id)).length} คน</span>
                 </button>
                 {manage && (
                   <button type="button" className="preset-del" aria-label={`ลบชุด ${p.name}`} onClick={() => remove(p)}><Icon name="trash" size={16} /></button>
@@ -149,7 +150,7 @@ export default function ParticipantPicker({ people, setPeople, payerId, error }:
               <div key={r.key} className={`preset preset-recent ${sameAs(r.memberIds) ? 'on' : ''}`}>
                 <button type="button" className="preset-main" onClick={() => apply(r.memberIds, r.label)}>
                   <span className="preset-name">{r.label}</span>
-                  <span className="preset-sub">{r.memberIds.filter((id) => known.has(id)).length} คน</span>
+                  <span className="preset-sub"><AvatarStack members={r.memberIds.filter((id) => known.has(id)).map((id) => byId.get(id))} size={18} max={4} />{r.memberIds.filter((id) => known.has(id)).length} คน</span>
                 </button>
               </div>
             ))}
@@ -165,13 +166,20 @@ export default function ParticipantPicker({ people, setPeople, payerId, error }:
             <button type="button" className="link-btn" onClick={() => setPeople([payerId])}>ล้างการเลือก</button>
           </span>
         </div>
-        <div className="chips">
-          {session.members.map((m) => (
-            <button key={m.id} type="button" className={`chip ${people.includes(m.id) ? 'on' : ''}`} onClick={() => toggle(m.id)} aria-pressed={people.includes(m.id)}>
-              <Avatar member={m} size={24} /><span>{m.name}</span>
-              {m.id === payerId && <span className="chip-tag">ผู้รับเงิน</span>}
-            </button>
-          ))}
+        <div className="member-grid">
+          {session.members.map((m) => {
+            const on = people.includes(m.id);
+            const isPayer = m.id === payerId;
+            return (
+              <button key={m.id} type="button" className={`member-tile ${on ? 'on' : ''} ${isPayer ? 'is-payer' : ''}`}
+                style={{ ['--mc' as string]: memberColor(m.id) }} onClick={() => toggle(m.id)} aria-pressed={on}
+                aria-label={`${m.name}${isPayer ? ' (ผู้รับเงิน เลือกไว้เสมอ)' : ''}`}>
+                <span className="tile-face"><Avatar member={m} size={44} /><span className="tile-check" aria-hidden="true"><Icon name="check" size={12} /></span></span>
+                <span className="tile-name">{m.name}</span>
+                <span className="tile-role">{isPayer ? 'ผู้รับเงิน' : on ? 'ร่วมจ่าย' : ' '}</span>
+              </button>
+            );
+          })}
         </div>
         {error && <p className="field-error">{error}</p>}
       </div>

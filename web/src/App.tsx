@@ -19,6 +19,14 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'summary', label: 'สรุปยอด', icon: 'chart' },
   { id: 'account', label: 'บัญชีรับเงิน', icon: 'wallet' },
 ];
+const TITLES: Record<Tab, { title: string; kicker: string }> = {
+  bills: { title: 'บิลของกลุ่ม', kicker: 'สมุดบัญชี' },
+  new: { title: 'สร้างบิลใหม่', kicker: 'บันทึกรายการ' },
+  edit: { title: 'แก้ไขบิล', kicker: 'บันทึกรายการ' },
+  summary: { title: 'สรุปยอด', kicker: 'ภาพรวม' },
+  account: { title: 'บัญชีรับเงิน', kicker: 'ตั้งค่า' },
+  dues: { title: 'ยอดค้างของฉัน', kicker: 'ที่ต้องชำระ' },
+};
 
 export default function App() {
   const [api, setApi] = useState<Api | null>(null);
@@ -108,26 +116,26 @@ export default function App() {
       <header className="topbar">
         <div className="container topbar-inner">
           <div className="brand">
-            <img className="brand-mark brand-cat" src="/stickers/face.png?v=1" alt="" width={40} height={40} />
-            <div>
-              <div className="brand-title">ระบบหารบิล</div>
+            <img className="brand-mark" src="/stickers/face.png?v=1" alt="" width={36} height={36} />
+            <div className="brand-text">
+              <div className="brand-title">หารบิล</div>
               <div className="brand-sub">{ctx.session.group.name}</div>
             </div>
           </div>
+          <nav className="tabs" aria-label="เมนูหลัก">
+            {TABS.map((t) => (
+              <button key={t.id} className={`${tab === t.id || (t.id === 'new' && tab === 'edit') ? 'on' : ''} ${t.id === 'new' ? 'tab-new' : ''}`} onClick={() => go(t.id)} aria-current={tab === t.id ? 'page' : undefined}>
+                <span className="tab-icon"><Icon name={t.icon} size={20} /></span><span className="tab-label">{t.label}</span>
+              </button>
+            ))}
+          </nav>
           <div className="me">
             <span className={`live live-${liveStatus}`} title={liveStatus === 'live' ? 'ข้อมูลอัปเดตอัตโนมัติ' : 'กำลังเชื่อมต่อใหม่'}>
-              <span className="live-dot" />{liveStatus === 'live' ? 'อัปเดตอัตโนมัติ' : 'กำลังเชื่อมต่อ'}
+              <span className="live-dot" /><span className="live-text">{liveStatus === 'live' ? 'สด' : 'กำลังเชื่อมต่อ'}</span>
             </span>
-            <Avatar member={ctx.session.me} size={34} /><span className="me-name">{ctx.session.me.name}</span>
+            <Avatar member={ctx.session.me} size={32} ring /><span className="me-name">{ctx.session.me.name}</span>
           </div>
         </div>
-        <nav className="container tabs" aria-label="เมนูหลัก">
-          {TABS.map((t) => (
-            <button key={t.id} className={tab === t.id ? 'on' : ''} onClick={() => go(t.id)} aria-current={tab === t.id ? 'page' : undefined}>
-              <Icon name={t.icon} size={18} /><span>{t.label}</span>
-            </button>
-          ))}
-        </nav>
       </header>
 
       {notice && (
@@ -135,7 +143,11 @@ export default function App() {
           <Alert kind="success" title="ข้อมูลอัปเดตแล้ว" sticker={noticeSticker} onClose={() => setNotice(null)}>{notice}</Alert>
         </div>
       )}
-      <main className="container main">
+      <main className="container main" key={tab}>
+        <div className="page-head">
+          <span className="kicker">{TITLES[tab].kicker}</span>
+          <h1 className="page-title">{TITLES[tab].title}</h1>
+        </div>
         {isMock && (
           <Alert kind="info" title="โหมดข้อมูลตัวอย่าง">ข้อมูลในหน้านี้เป็นข้อมูลจำลองสำหรับทดสอบหน้าตา ไม่ได้เชื่อมต่อกับ LINE หรือฐานข้อมูล</Alert>
         )}

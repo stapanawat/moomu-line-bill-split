@@ -1,4 +1,4 @@
-import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 import type { Member } from '../types';
 
 // ---------------- Icons (SVG) ----------------
@@ -21,6 +21,11 @@ const paths: Record<string, ReactNode> = {
   chevron: <path d="m9 6 6 6-6 6" />,
   edit: <><path d="M4 20h4l10-10-4-4L4 16v4Z" /><path d="m13 7 4 4" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  filter: <path d="M4 6h16M7 12h10M10 18h4" />,
+  users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6" /></>,
+  scan: <><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><path d="M4 12h16" /></>,
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
 };
 export function Icon({ name, size = 18 }: { name: keyof typeof paths | string; size?: number }) {
   return (
@@ -97,6 +102,71 @@ export function Loading({ text = 'กำลังโหลดข้อมูล'
   return <div className="loading"><Spinner /><span>{text}</span></div>;
 }
 
+/** โครงร่างระหว่างโหลด: คงความสูงใกล้เคียงเนื้อหาจริง เพื่อไม่ให้หน้ากระโดด */
+export function SkeletonRows({ rows = 4, label = 'กำลังโหลดข้อมูล' }: { rows?: number; label?: string }) {
+  return (
+    <div className="skeleton-list" role="status" aria-label={label}>
+      {Array.from({ length: rows }, (_, i) => (
+        <div className="skeleton-row" key={i}>
+          <span className="sk sk-block" />
+          <span className="skeleton-lines"><span className="sk sk-line" style={{ width: `${62 - i * 7}%` }} /><span className="sk sk-line sk-short" /></span>
+          <span className="sk sk-num" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** จำนวนเงินแบบตัวเลขบัญชี (ตัวเลขกว้างเท่ากัน) */
+export function Money({ value, unit, className, tone }: { value: number; unit?: boolean; className?: string; tone?: 'due' | 'paid' }) {
+  return (
+    <span className={`money ${tone ? `money-${tone}` : ''} ${className || ''}`}>
+      {Number(value).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {unit && <small> บาท</small>}
+    </span>
+  );
+}
+
+/** แถบสถานะการชำระ: 1 ช่องต่อผู้ที่ต้องจ่าย ช่องที่เต็มคือคนที่ชำระแล้ว */
+export function PaidTrack({ paid, total, label }: { paid: number; total: number; label?: string }) {
+  if (total <= 0) return null;
+  const done = paid >= total;
+  return (
+    <span className={`track ${done ? 'track-done' : ''}`} role="img" aria-label={label ?? `ชำระแล้ว ${paid} จาก ${total} คน`}>
+      {Array.from({ length: total }, (_, i) => <span key={i} className={i < paid ? 'on' : ''} />)}
+    </span>
+  );
+}
+
+/** แถบสัดส่วน: ค่าที่เปลี่ยนจะเลื่อนความยาวอย่างนุ่มนวล บอกการเปลี่ยนแปลงของยอด */
+export function Meter({ value, max, tone = 'paid', label }: { value: number; max: number; tone?: 'paid' | 'due' | 'ink'; label?: string }) {
+  const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  return (
+    <span className={`meter meter-${tone}`} role="meter" aria-valuemin={0} aria-valuemax={max} aria-valuenow={value} aria-label={label}>
+      <span style={{ width: `${pct}%` }} />
+    </span>
+  );
+}
+
+/** คืนชุดคีย์ที่เพิ่งปรากฏใหม่ (ไม่นับการแสดงครั้งแรก) ใช้ไฮไลต์แถวที่สถานะเพิ่งเปลี่ยน */
+export function useFreshKeys(keys: string[], ms = 1800) {
+  const prev = useRef<Set<string> | null>(null);
+  const [fresh, setFresh] = useState<Set<string>>(() => new Set());
+  const sig = keys.join('|');
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = new Set(keys);
+    if (!before) return;
+    const added = keys.filter((k) => !before.has(k));
+    if (!added.length) return;
+    setFresh(new Set(added));
+    const t = setTimeout(() => setFresh(new Set()), ms);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sig]);
+  return fresh;
+}
+
 export function Empty({ icon = 'list', title, children }: { icon?: string; title: string; children?: ReactNode }) {
   return (
     <div className="empty">
@@ -108,14 +178,28 @@ export function Empty({ icon = 'list', title, children }: { icon?: string; title
 }
 
 // ---------------- Avatar ----------------
-const COLORS = ['#2f6f8f', '#7a5c99', '#b0623b', '#3f7d5a', '#9a4a6b', '#4b5fa8', '#8a6d2f', '#4d7c80'];
-const colorOf = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
-export function Avatar({ member, size = 32 }: { member?: Member; size?: number }) {
-  if (!member) return <span className="avatar" style={{ width: size, height: size }} />;
-  if (member.pictureUrl) return <img className="avatar" src={member.pictureUrl} alt="" width={size} height={size} />;
+// สีประจำตัวสมาชิก: ใช้ซ้ำทุกจุด (รูปโปรไฟล์ เจ้าของรายการ แถบยอด) ให้จำคนได้จากสี
+const COLORS = ['#3f51c8', '#0d8080', '#8346c4', '#bf3f73', '#a8700f', '#2a77b8', '#5f7f16', '#94522f'];
+export const memberColor = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+export function Avatar({ member, size = 32, ring }: { member?: Member; size?: number; ring?: boolean }) {
+  const style: CSSProperties = { width: size, height: size };
+  if (member) (style as Record<string, string | number>)['--mc'] = memberColor(member.id);
+  const cls = `avatar ${ring ? 'avatar-ring' : ''}`;
+  if (!member) return <span className={cls} style={style} />;
+  if (member.pictureUrl) return <img className={cls} src={member.pictureUrl} alt="" width={size} height={size} style={style} />;
   return (
-    <span className="avatar" style={{ width: size, height: size, background: colorOf(member.id), fontSize: size * 0.42 }}>
+    <span className={`${cls} avatar-initial`} style={{ ...style, fontSize: size * 0.42 }}>
       {member.name.slice(0, 1).toUpperCase()}
+    </span>
+  );
+}
+/** รูปสมาชิกซ้อนกัน แสดงเจ้าของรายการ */
+export function AvatarStack({ members, size = 22, max = 5 }: { members: (Member | undefined)[]; size?: number; max?: number }) {
+  const shown = members.slice(0, max);
+  return (
+    <span className="avatar-stack" aria-label={members.map((m) => m?.name).filter(Boolean).join(', ')}>
+      {shown.map((m, i) => <Avatar key={m?.id ?? i} member={m} size={size} ring />)}
+      {members.length > max && <span className="avatar-more" style={{ height: size, minWidth: size }}>+{members.length - max}</span>}
     </span>
   );
 }
@@ -124,8 +208,9 @@ export function Person({ member, size = 28, suffix }: { member?: Member; size?: 
 }
 
 // ---------------- Badges ----------------
+/** สถานะแบบเครื่องหมาย + ข้อความ (ไม่ใช้สีอย่างเดียว เพื่อผู้ที่แยกสีไม่ได้) */
 export function Badge({ kind, children }: { kind: 'success' | 'warning' | 'danger' | 'neutral'; children: ReactNode }) {
-  return <span className={`badge badge-${kind}`}>{children}</span>;
+  return <span className={`badge badge-${kind}`}><span className="badge-mark" aria-hidden="true" />{children}</span>;
 }
 
 // ---------------- Segmented ----------------

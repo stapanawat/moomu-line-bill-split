@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp, errorText } from '../context';
 import type { SummaryRow } from '../types';
-import { baht, thDate } from '../lib/format';
-import { Alert, Button, Icon, Loading, Sticker, duePhase, dueSticker } from '../components/ui';
+import { thDate } from '../lib/format';
+import { Alert, Button, Icon, Money, SkeletonRows, Sticker, duePhase, dueSticker } from '../components/ui';
 import BillDetailModal from './BillDetail';
 
 const AUTO_CLOSE_SECONDS = 5;
@@ -29,7 +29,7 @@ export default function MyDuesPage({ onShowBills }: { onShowBills: () => void })
   if (error) {
     return <Alert kind="error" title="ไม่สามารถตรวจสอบยอดค้างได้" action={<Button variant="secondary" size="sm" icon="refresh" onClick={() => setReload((r) => r + 1)}>ลองใหม่</Button>}>{error}</Alert>;
   }
-  if (row === undefined) return <Loading text="กำลังตรวจสอบยอดค้างของท่าน" />;
+  if (row === undefined) return <SkeletonRows rows={3} label="กำลังตรวจสอบยอดค้างของท่าน" />;
   if (row === null) return <NoDues inClient={inClient} closeWindow={closeWindow} onShowBills={onShowBills} paused={openId !== null} />;
 
   const oldest = row.dueBills.reduce((a, b) => (b.date < a ? b.date : a), row.dueBills[0]?.date ?? new Date().toISOString());
@@ -39,8 +39,12 @@ export default function MyDuesPage({ onShowBills }: { onShowBills: () => void })
       <section className={`due-hero due-phase-${phase}`}>
         <div className="due-hero-info">
           <div className="due-hero-k">ยอดค้างชำระของท่าน</div>
-          <div className="due-hero-v">{baht(row.due)} <small>บาท</small></div>
-          <div className="due-hero-sub">{row.dueBills.length} รายการ · กดรายการเพื่อดู QR และแนบสลิป</div>
+          <div className="due-hero-v"><Money value={row.due} /> <small>บาท</small></div>
+          <div className="due-hero-sub">{row.dueBills.length} รายการ · แตะรายการเพื่อดู QR และแนบสลิป</div>
+          <div className="phase-meter" role="img" aria-label={`ระดับการค้างชำระ ${phase} จาก 5`}>
+            {[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= phase ? 'on' : ''} />)}
+            <span className="phase-meter-label">ค้างระดับ {phase}/5</span>
+          </div>
         </div>
         <Sticker name={dueSticker(oldest)} size={132} className="due-hero-cat" />
       </section>
@@ -55,7 +59,7 @@ export default function MyDuesPage({ onShowBills }: { onShowBills: () => void })
                   <div className="bill-meta"><span className="muted">{thDate(b.date)} · ชำระให้ {b.payerName}</span> <span className={`phase-tag phase-${duePhase(b.date)}`}>ค้างเฟส {duePhase(b.date)}</span></div>
                 </div>
                 <div className="bill-right">
-                  <div className="bill-total text-danger">{baht(b.amount)}</div>
+                  <Money value={b.amount} className="bill-total" tone="due" />
                   <span className="pay-link"><Icon name="qr" size={15} />ชำระเงิน</span>
                 </div>
                 <Icon name="chevron" />

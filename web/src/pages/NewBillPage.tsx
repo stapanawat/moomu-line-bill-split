@@ -6,7 +6,7 @@ import { useApp, errorText } from '../context';
 import { ApiError } from '../lib/api';
 import { ocrReceipt, type OcrStage } from '../lib/ocr';
 import { baht, compressImage, todayIso } from '../lib/format';
-import { Alert, Button, Field, Icon, Person, Sticker } from '../components/ui';
+import { Alert, Avatar, Button, Field, Icon, Meter, Money, Person, memberColor } from '../components/ui';
 import ParticipantPicker from '../components/ParticipantPicker';
 import type { BillDetail, Member } from '../types';
 
@@ -41,6 +41,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
   const locked = Boolean(edit?.hasPayments); // มีคนจ่ายแล้ว: แก้ได้แค่ชื่อ วันที่ ใบเสร็จ
   const [step, setStep] = useState(isEdit ? 1 : 0);
   const [reached, setReached] = useState(isEdit ? 3 : 0);
+  const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
   const [title, setTitle] = useState(edit?.title ?? '');
   const [date, setDate] = useState(edit?.date ?? todayIso());
   const meIsMember = session.members.some((m) => m.id === me.id);
@@ -174,7 +175,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
     }
     return f;
   }
-  const goTo = (s: number) => { setErrors({}); setFormError(null); setStep(s); scrollTop(); };
+  const goTo = (s: number) => { setErrors({}); setFormError(null); setDir(s < step ? 'back' : 'fwd'); setStep(s); scrollTop(); };
   const next = () => {
     const f = validateStep(step);
     setErrors(f);
@@ -188,7 +189,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
     setFormError(null);
     for (let s = 0; s < STEPS.length; s++) {
       const f = validateStep(s);
-      if (Object.keys(f).length) { setErrors(f); setStep(s); scrollTop(); return; }
+      if (Object.keys(f).length) { setErrors(f); setDir('back'); setStep(s); scrollTop(); return; }
     }
     setSaving(true);
     try {
@@ -231,11 +232,11 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
 
   return (
     <div ref={topRef} className="stack wizard">
-      <ol className="stepper" aria-label="ขั้นตอนสร้างบิล">
+      <ol className="stepper" aria-label="ขั้นตอนสร้างบิล" style={{ ['--progress' as string]: `${(step / (STEPS.length - 1)) * 100}%` }}>
         {STEPS.map((s, i) => (
           <li key={s.key} className={i === step ? 'is-current' : i < step || i <= reached ? 'is-done' : ''}>
             <button type="button" disabled={i > reached || saving} onClick={() => (i < step ? goTo(i) : i > step && i <= reached ? (Object.keys(validateStep(step)).length ? next() : goTo(i)) : undefined)}>
-              <span className="step-dot">{i < step || (i <= reached && i !== step) ? <Icon name="success" size={16} /> : i + 1}</span>
+              <span className="step-dot">{i < step || (i <= reached && i !== step) ? <Icon name="check" size={14} /> : i + 1}</span>
               <span className="step-label">{s.label}</span>
             </button>
           </li>
@@ -253,6 +254,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
         </Alert>
       )}
 
+      <div key={step} className={`step-pane step-${dir}`}>
       {/* ---------- 1. ผู้ร่วมบิล ---------- */}
       {step === 0 && (
         <>
@@ -267,9 +269,11 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
           {locked
             ? <section className="card"><p className="muted">มีสมาชิกชำระแล้ว จึงเปลี่ยนผู้ร่วมบิลไม่ได้</p><PeopleChips ids={people} payerId={payerId} /></section>
             : <ParticipantPicker people={people} setPeople={setPeople} payerId={payerId} error={errors.people} />}
-          <section className="card confirm-card">
-            <div className="confirm-row"><span className="muted">ผู้ร่วมบิลที่เลือก</span><b>{people.length} คน</b></div>
-            <PeopleChips ids={people} payerId={payerId} />
+          <section className="dock">
+            <div className="dock-summary">
+              <span className="dock-faces">{people.slice(0, 6).map((id) => <Avatar key={id} member={member(id)} size={28} ring />)}{people.length > 6 && <span className="avatar-more">+{people.length - 6}</span>}</span>
+              <span><b>{people.length} คน</b> <span className="muted">ร่วมบิลนี้</span></span>
+            </div>
             {nav(`ยืนยันผู้ร่วมบิล ${people.length} คน`)}
           </section>
         </>
@@ -279,32 +283,52 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
       {step === 1 && (
         <section className="card">
           <StepHead n={2} title="ใบเสร็จ" sub="แนบรูปใบเสร็จได้ ระบบจะอ่านชื่อรายการ ราคา และวันที่ให้อัตโนมัติ ไม่มีใบเสร็จก็ข้ามได้" />
-          <div className="receipt-pick">
+          <div className={`receipt-stage ${receipt ? 'has-image' : ''}`}>
             {receipt ? (
-              <div className="upload-preview">
-                <img src={receipt} alt="รูปใบเสร็จ" />
-                <div className="row-gap">
+              <figure className={`receipt-frame ${scan.kind === 'busy' ? 'is-scanning' : ''}`}>
+                <div className="receipt-img"><img src={receipt} alt="รูปใบเสร็จ" />{scan.kind === 'busy' && <span className="scan-beam" aria-hidden="true" />}</div>
+                <figcaption className="row-gap">
                   <label className="btn btn-secondary btn-sm"><input type="file" accept="image/*" hidden onChange={(e) => { void pickReceipt(e.target.files?.[0]); e.target.value = ''; }} /><Icon name="image" size={16} /> เปลี่ยนรูป</label>
-                  {!locked && ocrSource && scan.kind !== 'busy' && <Button variant="secondary" size="sm" icon="receipt" onClick={() => void runScan(ocrSource)}>อ่านรายการอีกครั้ง</Button>}
-                  <Button variant="secondary" size="sm" icon="trash" onClick={() => { setReceipt(null); setOcrSource(null); setScan({ kind: 'idle' }); }}>นำรูปออก</Button>
-                </div>
-              </div>
+                  {!locked && ocrSource && scan.kind !== 'busy' && <Button variant="secondary" size="sm" icon="scan" onClick={() => void runScan(ocrSource)}>อ่านอีกครั้ง</Button>}
+                  <Button variant="ghost" size="sm" icon="trash" onClick={() => { setReceipt(null); setOcrSource(null); setScan({ kind: 'idle' }); }}>นำรูปออก</Button>
+                </figcaption>
+              </figure>
             ) : (
               <label className="upload upload-lg">
                 <input type="file" accept="image/*" onChange={(e) => { void pickReceipt(e.target.files?.[0]); e.target.value = ''; }} />
-                <Sticker name="bill" size={96} />
+                <span className="upload-glyph"><Icon name="scan" size={30} /></span>
                 <span className="strong">ถ่ายรูปหรือเลือกรูปใบเสร็จ</span>
-                <span className="muted small">สมาชิกทุกคนในกลุ่มเปิดดูได้</span>
+                <span className="muted small">ระบบอ่านรายการ ราคา และวันที่ให้ · สมาชิกทุกคนในกลุ่มเปิดดูได้</span>
               </label>
             )}
-            {errors.receiptImage && <span className="field-error">{errors.receiptImage}</span>}
+            {receipt && (
+              <div className="recognized" aria-live="polite">
+                <div className="recognized-head">
+                  <span className="kicker">{scan.kind === 'busy' ? 'กำลังอ่าน' : 'อ่านได้จากใบเสร็จ'}</span>
+                  {scan.kind !== 'busy' && filledCount > 0 && <span className="muted">{filledCount} รายการ</span>}
+                </div>
+                {scan.kind === 'busy' ? (
+                  <div className="scan-progress" role="status">
+                    <span>{scan.stage === 'load' ? 'กำลังเตรียมตัวอ่าน (ครั้งแรกอาจใช้เวลาสักครู่)' : `กำลังอ่านรายการ ${scan.pct}%`}</span>
+                    <Meter value={scan.stage === 'load' ? 8 : Math.max(8, scan.pct)} max={100} tone="ink" label="ความคืบหน้าการอ่านใบเสร็จ" />
+                    <div className="recognized-skeleton" aria-hidden="true">{[70, 52, 64].map((w) => <span key={w} className="sk sk-line" style={{ width: `${w}%` }} />)}</div>
+                  </div>
+                ) : filledCount > 0 ? (
+                  <>
+                    <ul className="ledger ledger-compact">
+                      {filledItems().map((it) => (
+                        <li key={it.key} className="ledger-row reveal"><span className="ledger-name">{it.name || <span className="muted">ไม่มีชื่อ</span>}</span><Money value={Number(it.price) || 0} className="ledger-amt" /></li>
+                      ))}
+                    </ul>
+                    <dl className="ledger-foot"><div className="ledger-total"><dt>รวมก่อนปรับ</dt><dd><Money value={calc.subtotal} /></dd></div></dl>
+                  </>
+                ) : (
+                  <p className="muted small">ยังไม่มีรายการ กรอกเองได้ในขั้นถัดไป</p>
+                )}
+              </div>
+            )}
           </div>
-          {scan.kind === 'busy' && (
-            <div className="scan-progress" role="status">
-              <span>{scan.stage === 'load' ? 'กำลังเตรียมตัวอ่านใบเสร็จ (ครั้งแรกอาจใช้เวลาสักครู่)' : `กำลังอ่านรายการจากใบเสร็จ ${scan.pct}%`}</span>
-              <div className="bar"><div style={{ width: `${scan.stage === 'load' ? 8 : Math.max(8, scan.pct)}%` }} /></div>
-            </div>
-          )}
+          {errors.receiptImage && <span className="field-error">{errors.receiptImage}</span>}
           {scan.kind === 'done' && <Alert kind={scan.level} title={scan.title} onClose={() => setScan({ kind: 'idle' })}>{scan.text}</Alert>}
           <div className="grid-2 mt">
             <Field label="ชื่อรายการ / ชื่อร้าน" error={errors.title} className="span-2">
@@ -322,37 +346,56 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
       {step === 2 && (
         <>
           <fieldset className="card plain-fieldset" disabled={locked}>
-            <StepHead n={3} title="ตรวจรายการและราคา" sub="แก้ชื่อหรือราคาได้ และเลือกว่าแต่ละรายการหารกับใคร (ค่าเริ่มต้น หารทุกคน)" />
+            <StepHead n={3} title="ตรวจรายการและราคา" sub="แก้ชื่อหรือราคาได้ และแตะชื่อเพื่อเลือกว่าแต่ละรายการหารกับใคร (ค่าเริ่มต้น หารทุกคน)" />
+            {receipt && (
+              <details className="receipt-ref">
+                <summary><Icon name="receipt" size={16} />เทียบกับใบเสร็จต้นฉบับ</summary>
+                <img src={receipt} alt="รูปใบเสร็จต้นฉบับ" />
+              </details>
+            )}
             {locked && <span className="lock-tag">ล็อกเนื่องจากมีผู้ชำระแล้ว</span>}
             {errors.items && <p className="field-error">{errors.items}</p>}
-            <div className="items">
-              {items.map((it, idx) => (
-                <div className="item" key={it.key}>
-                  <div className="item-row">
-                    <span className="item-no">{idx + 1}</span>
-                    <Field label="รายการ" error={errors[`items.${idx}.name`]} className="grow">
-                      <input value={it.name} onChange={(e) => updateItem(it.key, { name: e.target.value })} placeholder="ชื่อรายการ" />
-                    </Field>
-                    <Field label="ราคา (บาท)" error={errors[`items.${idx}.price`]} className="w-price">
-                      <input type="number" inputMode="decimal" min="0" step="0.01" value={it.price} onChange={(e) => updateItem(it.key, { price: e.target.value })} placeholder="0.00" />
-                    </Field>
-                    <button type="button" className="icon-btn danger" aria-label={`ลบรายการที่ ${idx + 1}`} onClick={() => setItems((l) => (l.length > 1 ? l.filter((x) => x.key !== it.key) : [newItem()]))}>
-                      <Icon name="trash" />
-                    </button>
-                  </div>
-                  <div className="item-members">
-                    <span className="muted">หารกับ:</span>
-                    {people.map((id) => (
-                      <button key={id} type="button" className={`chip chip-sm ${shareIds(it).includes(id) ? 'on' : ''}`} onClick={() => toggleItemMember(it, id)}>
-                        {member(id)?.name}
+            <ol className="items">
+              {items.map((it, idx) => {
+                const owners = shareIds(it);
+                const everyone = owners.length === people.length;
+                const each = owners.length ? (Number(it.price) || 0) / owners.length : 0;
+                return (
+                  <li className={`item ${errors[`items.${idx}.members`] ? 'has-error' : ''}`} key={it.key}>
+                    <div className="item-row">
+                      <span className="item-no" aria-hidden="true">{String(idx + 1).padStart(2, '0')}</span>
+                      <Field label="รายการ" error={errors[`items.${idx}.name`]} className="grow">
+                        <input value={it.name} onChange={(e) => updateItem(it.key, { name: e.target.value })} placeholder="ชื่อรายการ" />
+                      </Field>
+                      <Field label="ราคา (บาท)" error={errors[`items.${idx}.price`]} className="w-price">
+                        <input className="input-money" type="number" inputMode="decimal" min="0" step="0.01" value={it.price} onChange={(e) => updateItem(it.key, { price: e.target.value })} placeholder="0.00" />
+                      </Field>
+                      <button type="button" className="icon-btn danger" aria-label={`ลบรายการที่ ${idx + 1}`} onClick={() => setItems((l) => (l.length > 1 ? l.filter((x) => x.key !== it.key) : [newItem()]))}>
+                        <Icon name="trash" />
                       </button>
-                    ))}
-                  </div>
-                  {errors[`items.${idx}.members`] && <p className="field-error">{errors[`items.${idx}.members`]}</p>}
-                </div>
-              ))}
-            </div>
-            <Button variant="secondary" icon="plus" onClick={() => setItems((l) => [...l, newItem()])}>เพิ่มรายการ</Button>
+                    </div>
+                    <div className="assign" role="group" aria-label={`ผู้ร่วมจ่ายรายการที่ ${idx + 1}`}>
+                      <button type="button" className={`assign-all ${everyone ? 'on' : ''}`} aria-pressed={everyone}
+                        onClick={() => updateItem(it.key, { memberIds: everyone ? [] : [...people] })}>
+                        <Icon name="users" size={16} />ทุกคน
+                      </button>
+                      {people.map((id) => {
+                        const on = owners.includes(id);
+                        return (
+                          <button key={id} type="button" className={`assign-person ${on ? 'on' : ''}`} aria-pressed={on}
+                            style={{ ['--mc' as string]: memberColor(id) }} onClick={() => toggleItemMember(it, id)}>
+                            <Avatar member={member(id)} size={22} /><span>{member(id)?.name}</span>
+                          </button>
+                        );
+                      })}
+                      {owners.length > 0 && Number(it.price) > 0 && <span className="assign-each"><Money value={each} /> /คน</span>}
+                    </div>
+                    {errors[`items.${idx}.members`] && <p className="field-error">{errors[`items.${idx}.members`]}</p>}
+                  </li>
+                );
+              })}
+            </ol>
+            <Button variant="secondary" icon="plus" className="add-item" onClick={() => setItems((l) => [...l, newItem()])}>เพิ่มรายการ</Button>
             <div className="grid-2 mt">
               <Field label="ค่าบริการ / ภาษี (%)" error={errors.servicePct}>
                 <input type="number" inputMode="decimal" min="0" max="100" value={servicePct} onChange={(e) => setServicePct(e.target.value)} />
@@ -375,10 +418,10 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
           <StepHead n={4} title="ช่องทางรับเงิน" sub={`ให้สมาชิกโอนเงินให้ ${member(payerId)?.name ?? 'ผู้รับเงิน'} ผ่านช่องทางที่เลือก`} />
           <div className="pay-choice" role="radiogroup" aria-label="ช่องทางรับเงิน">
             <button type="button" role="radio" aria-checked={payMethod === 'promptpay'} className={payMethod === 'promptpay' ? 'on' : ''} disabled={locked} onClick={() => setPayMethod('promptpay')}>
-              <Icon name="wallet" size={22} /><b>เลขพร้อมเพย์</b><span>ระบบสร้าง QR พร้อมยอดของแต่ละคนให้</span>
+              <span className="radio" aria-hidden="true" /><Icon name="wallet" size={22} /><b>เลขพร้อมเพย์</b><span>ระบบสร้าง QR พร้อมยอดของแต่ละคนให้</span>
             </button>
             <button type="button" role="radio" aria-checked={payMethod === 'qr'} className={payMethod === 'qr' ? 'on' : ''} disabled={locked} onClick={() => setPayMethod('qr')}>
-              <Icon name="qr" size={22} /><b>รูป QR ธนาคาร</b><span>แนบ QR รับเงินจากแอปธนาคาร</span>
+              <span className="radio" aria-hidden="true" /><Icon name="qr" size={22} /><b>รูป QR ธนาคาร</b><span>แนบ QR รับเงินจากแอปธนาคาร</span>
             </button>
           </div>
           {payMethod === 'promptpay' ? (
@@ -402,15 +445,22 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
               {errors.qrImage ? <span className="field-error">{errors.qrImage}</span> : <span className="field-hint">สมาชิกต้องกรอกยอดเงินเองเมื่อสแกน QR แบบนี้</span>}
             </div>
           )}
-          <div className="final-summary">
-            <div className="confirm-row"><span className="muted">บิล</span><b>{title || '-'}</b></div>
-            <div className="confirm-row"><span className="muted">ผู้ร่วมบิล</span><b>{people.length} คน · {filledCount} รายการ</b></div>
-            <div className="confirm-row"><span className="muted">ใบเสร็จ</span><b>{receipt ? 'แนบแล้ว' : 'ไม่มี'}</b></div>
-            <div className="confirm-row total"><span>ยอดรวมบิล</span><b>{baht(calc.total)} บาท</b></div>
+          <div className="ticket" aria-label="สรุปก่อนบันทึก">
+            <div className="ticket-head">
+              <span className="kicker">สรุปก่อนบันทึก</span>
+              <b className="ticket-title">{title || 'ไม่มีชื่อรายการ'}</b>
+            </div>
+            <dl className="ticket-rows">
+              <div><dt>ผู้รับเงิน</dt><dd>{member(payerId)?.name ?? '-'}</dd></div>
+              <div><dt>ผู้ร่วมบิล</dt><dd>{people.length} คน · {filledCount} รายการ</dd></div>
+              <div><dt>ใบเสร็จ</dt><dd>{receipt ? 'แนบแล้ว' : 'ไม่มี'}</dd></div>
+            </dl>
+            <div className="ticket-total"><span>ยอดรวมบิล</span><span className="hero-figure"><Money value={calc.total} /><small>บาท</small></span></div>
           </div>
           {nav('')}
         </section>
       )}
+      </div>
     </div>
   );
 }
@@ -436,27 +486,26 @@ function PeopleChips({ ids, payerId }: { ids: string[]; payerId: string }) {
 
 function ShareTable({ calc, payerId }: { calc: ReturnType<typeof computeShares>; payerId: string }) {
   const { member } = useApp();
+  const entries = Object.entries(calc.shares).map(([id, amt]) => [id, Number(amt)] as const);
+  const max = Math.max(0, ...entries.map(([, a]) => a));
   return (
     <>
       <h2 className="card-title">ยอดที่แต่ละคนต้องชำระ</h2>
-      <div className="table-wrap">
-        <table className="table">
-          <thead><tr><th>สมาชิก</th><th className="num">ยอด (บาท)</th></tr></thead>
-          <tbody>
-            {Object.entries(calc.shares).map(([id, amt]) => (
-              <tr key={id}>
-                <td><Person member={member(id)} size={24} suffix={id === payerId ? <span className="muted"> (ผู้รับเงิน)</span> : null} /></td>
-                <td className="num">{baht(Number(amt))}</td>
-              </tr>
-            ))}
-            {!Object.keys(calc.shares).length && <tr><td colSpan={2} className="muted center">กรอกรายการและราคาเพื่อดูยอดของแต่ละคน</td></tr>}
-          </tbody>
-          <tfoot>
-            <tr><td>ราคารวมก่อนปรับ</td><td className="num">{baht(calc.subtotal)}</td></tr>
-            <tr className="total-row"><td>ยอดรวมบิล</td><td className="num">{baht(calc.total)}</td></tr>
-          </tfoot>
-        </table>
-      </div>
+      {!entries.length ? <p className="muted">กรอกรายการและราคาเพื่อดูยอดของแต่ละคน</p> : (
+        <ul className="split-bars">
+          {entries.map(([id, amt]) => (
+            <li key={id} style={{ ['--mc' as string]: memberColor(id) }}>
+              <Person member={member(id)} size={24} suffix={id === payerId ? <span className="muted"> · ผู้รับเงิน</span> : null} />
+              <Money value={amt} className="split-amt" />
+              <span className="split-bar" aria-hidden="true"><span style={{ width: `${max ? (amt / max) * 100 : 0}%` }} /></span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <dl className="ledger-foot">
+        <div><dt>ราคารวมก่อนปรับ</dt><dd><Money value={calc.subtotal} /></dd></div>
+        <div className="ledger-total"><dt>ยอดรวมบิล</dt><dd><Money value={calc.total} /></dd></div>
+      </dl>
     </>
   );
 }
