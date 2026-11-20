@@ -40,8 +40,24 @@ async function call(path, { method = 'GET', body, base = API } = {}) {
 export const reply = (replyToken, messages) =>
   call('/v2/bot/message/reply', { method: 'POST', body: { replyToken, messages: [].concat(messages) } });
 
-export const push = (to, messages) =>
-  call('/v2/bot/message/push', { method: 'POST', body: { to, messages: [].concat(messages) } });
+/** ข้อความแท็ก -> ข้อความธรรมดา (ใช้เมื่อ LINE ปฏิเสธการแท็ก เช่น สมาชิกออกจากกลุ่มไปแล้ว) */
+const plainOf = new WeakMap();
+export const withoutMentions = (messages) =>
+  [].concat(messages).map((m) => (m?.type === 'textV2' ? { type: 'text', text: plainOf.get(m) ?? m.text.replace(/\{m\d+\}/g, '@สมาชิก') } : m));
+
+export async function push(to, messages) {
+  const list = [].concat(messages);
+  try {
+    return await call('/v2/bot/message/push', { method: 'POST', body: { to, messages: list } });
+  } catch (e) {
+    // แท็กไม่ผ่าน: ส่งใหม่แบบไม่แท็ก เพื่อให้การ์ดและข้อความยังถึงกลุ่ม
+    if (e.status === 400 && list.some((m) => m?.type === 'textV2')) {
+      console.warn('[line] push with mentions rejected, retry without mentions:', e.message);
+      return call('/v2/bot/message/push', { method: 'POST', body: { to, messages: withoutMentions(list) } });
+    }
+    throw e;
+  }
+}
 
 export const getGroupMemberProfile = (groupId, userId) =>
   call(`/v2/bot/group/${encodeURIComponent(groupId)}/member/${encodeURIComponent(userId)}`);
@@ -109,7 +125,9 @@ export function textV2() {
     build() {
       // ไม่มีการแท็ก ใช้ข้อความธรรมดา
       if (!n) return { type: 'text', text: raw.replace(/\n+$/, '') };
-      return { type: 'textV2', text: text.replace(/\n+$/, ''), substitution };
+      const msg = { type: 'textV2', text: text.replace(/\n+$/, ''), substitution };
+      plainOf.set(msg, raw.replace(/\n+$/, ''));
+      return msg;
     },
   };
   return api;

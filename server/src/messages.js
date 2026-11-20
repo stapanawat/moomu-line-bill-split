@@ -13,14 +13,25 @@ export const billUrl = (url, billId) => (billId ? `${url}${url.includes('?') ? '
 
 const MENTIONS_PER_MESSAGE = 20;
 
-/** ข้อความแท็กหลายคน แบ่งเป็นหลายข้อความถ้าคนเยอะ */
-function mentionMessages(prefix, people, suffix) {
+/**
+ * ข้อความแท็กหลายคน (คนที่ถูกแท็กจะได้รับการแจ้งเตือนจาก LINE แม้ปิดเสียงกลุ่มไว้)
+ * rows: [{ member, amount? }] มียอดเงิน = แท็กทีละบรรทัดพร้อมยอด
+ * แบ่งเป็นหลายข้อความถ้าคนเยอะ (LINE แท็กได้สูงสุด 20 คนต่อข้อความ)
+ */
+function mentionMessages(prefix, rows, suffix) {
+  const list = rows.map((r) => (r.member ? r : { member: r }));
+  const withAmount = list.some((r) => r.amount != null);
   const out = [];
-  for (let i = 0; i < Math.max(people.length, 1); i += MENTIONS_PER_MESSAGE) {
+  for (let i = 0; i < Math.max(list.length, 1); i += MENTIONS_PER_MESSAGE) {
     const b = textV2();
     if (i === 0) b.add(prefix);
-    people.slice(i, i + MENTIONS_PER_MESSAGE).forEach((m, j) => { if (j || i === 0) b.add(' '); b.mention(m.line_user_id, m.display_name); });
-    if (suffix && i + MENTIONS_PER_MESSAGE >= people.length) b.add(suffix);
+    list.slice(i, i + MENTIONS_PER_MESSAGE).forEach((r, j) => {
+      if (withAmount) { if (j || i === 0) b.add('\n'); }
+      else if (j || i === 0) b.add(' ');
+      b.mention(r.member.line_user_id, r.member.display_name);
+      if (withAmount && r.amount != null) b.add(` ${formatBaht(r.amount)}`);
+    });
+    if (suffix && i + MENTIONS_PER_MESSAGE >= list.length) b.add(withAmount ? `\n${suffix.trim()}` : suffix);
     out.push(b.build());
   }
   return out;
@@ -50,7 +61,7 @@ export function newBillMessage(bill, payerName, debtors, url, { edited = false }
   const u = billUrl(url, bill.id);
   const head = edited ? `แก้ไขบิล "${bill.title}" ยอดที่ต้องชำระมีการเปลี่ยนแปลง ผู้ที่ต้องชำระ:` : `บันทึกบิลใหม่ "${bill.title}" ผู้ที่ต้องชำระ:`;
   return [
-    ...mentionMessages(head, debtors.map((d) => d.member), ' กรุณาตรวจสอบยอดในการ์ดด้านล่าง'),
+    ...mentionMessages(head, debtors.map((d) => ({ member: d.member, amount: d.amount })), 'โอนแล้วส่งรูปสลิปในกลุ่มนี้ ระบบจะตรวจให้อัตโนมัติ'),
     card.flex(`${edited ? 'แก้ไขบิล' : 'บิลใหม่'} ${bill.title} ยอดรวม ${formatBaht(bill.total)}`, card.newBillCard({
       label: edited ? 'แก้ไขบิล' : 'บันทึกบิลใหม่',
       title: bill.title, date: thDate(bill.bill_date), total: bill.total, payerName,
@@ -120,7 +131,7 @@ export function reminderMessages(groupDues, url, today = new Date().toISOString(
   const phaseOf = (g) => card.duePhase(g.bill_date, today);
   const maxPhase = Math.max(1, ...groupDues.map(phaseOf));
 
-  const mentions = mentionMessages(`แจ้งเตือนยอดค้างชำระ ประจำวันที่ ${dateText}`, people.map((p) => p.member), ' กรุณาชำระและส่งสลิปในกลุ่มนี้').slice(0, 4);
+  const mentions = mentionMessages(`แจ้งเตือนยอดค้างชำระ ประจำวันที่ ${dateText}`, people.map((p) => ({ member: p.member, amount: round2(p.amount) })), 'กรุณาชำระและส่งรูปสลิปในกลุ่มนี้').slice(0, 4);
   const bubbles = [
     card.reminderSummaryCard({ dateText, total, billCount: groupDues.length, url, phase: maxPhase, people: people.map((p) => ({ name: p.member.display_name, amount: round2(p.amount) })) }),
     ...groupDues.slice(0, 11).map((g) => card.reminderBillCard({

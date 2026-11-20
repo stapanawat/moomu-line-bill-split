@@ -71,8 +71,8 @@ async function handleEvent(ev) {
     if (DUES_WORDS.has(t)) {
       const dues = await groupDues(group.id);
       if (!dues.bills.length) return safeReply(ev, { type: 'text', text: 'ขณะนี้ไม่มียอดค้างชำระ สมาชิกทุกคนชำระครบแล้ว' });
-      // ตอบเป็นการ์ดสรุปอย่างเดียว ไม่แท็กทุกคน (การแท็กทำเฉพาะตอนทวงรายวัน)
-      return safeReply(ev, msg.reminderMessages(toReminderInput(dues), url).filter((m) => m.type === 'flex'));
+      // แท็กทุกคนที่ค้างพร้อมยอด (ให้ได้รับการแจ้งเตือน) + การ์ดสรุป
+      return safeReply(ev, msg.reminderMessages(toReminderInput(dues), url));
     }
     return;
   }
