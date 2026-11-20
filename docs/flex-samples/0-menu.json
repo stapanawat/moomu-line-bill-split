@@ -30,8 +30,33 @@
         "margin": "sm"
       }
     ],
-    "backgroundColor": "#06C755",
-    "paddingAll": "20px"
+    "backgroundColor": "#9A5B2B",
+    "paddingAll": "20px",
+    "paddingBottom": "18px"
+  },
+  "hero": {
+    "type": "box",
+    "layout": "vertical",
+    "backgroundColor": "#FFF6EC",
+    "paddingTop": "14px",
+    "paddingBottom": "6px",
+    "contents": [
+      {
+        "type": "image",
+        "url": "https://YOUR-APP.onrender.com/stickers/bill.png?v=1",
+        "size": "full",
+        "aspectRatio": "4:3",
+        "aspectMode": "fit"
+      }
+    ]
+  },
+  "styles": {
+    "header": {
+      "separator": false
+    },
+    "footer": {
+      "separator": false
+    }
   },
   "body": {
     "type": "box",
@@ -50,7 +75,7 @@
                 "text": "ยอดค้างชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#6B7684"
+                "color": "#8A7565"
               },
               {
                 "type": "text",
@@ -58,7 +83,7 @@
                 "wrap": true,
                 "size": "xl",
                 "weight": "bold",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "margin": "xs"
               },
               {
@@ -66,7 +91,7 @@
                 "text": "บาท",
                 "wrap": true,
                 "size": "xs",
-                "color": "#6B7684"
+                "color": "#8A7565"
               }
             ],
             "flex": 1
@@ -80,7 +105,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#6B7684",
+                "color": "#8A7565",
                 "align": "end"
               },
               {
@@ -89,7 +114,7 @@
                 "wrap": true,
                 "size": "lg",
                 "weight": "bold",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "align": "end",
                 "margin": "xs"
               },
@@ -98,15 +123,15 @@
                 "text": "3 คน",
                 "wrap": true,
                 "size": "xs",
-                "color": "#6B7684",
+                "color": "#8A7565",
                 "align": "end"
               }
             ],
             "flex": 1
           }
         ],
-        "backgroundColor": "#F4F6F8",
-        "cornerRadius": "12px",
+        "backgroundColor": "#FBEBDD",
+        "cornerRadius": "16px",
         "paddingAll": "14px"
       },
       {
@@ -114,7 +139,7 @@
         "text": "เลือกเมนูที่ต้องการ",
         "wrap": true,
         "size": "sm",
-        "color": "#6B7684",
+        "color": "#8A7565",
         "margin": "lg"
       }
     ],
@@ -130,7 +155,7 @@
         "style": "primary",
         "height": "sm",
         "margin": "sm",
-        "color": "#06C755",
+        "color": "#9A5B2B",
         "action": {
           "type": "uri",
           "label": "ดูรายการบิล",
@@ -143,9 +168,9 @@
         "height": "sm",
         "margin": "sm",
         "action": {
-          "type": "message",
-          "label": "ดูยอดค้าง",
-          "text": "ยอดค้าง"
+          "type": "uri",
+          "label": "ดูยอดค้างของฉัน",
+          "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY&tab=dues"
         }
       },
       {
@@ -175,7 +200,7 @@
         "text": "แจ้งเตือนผู้ที่ยังไม่ชำระทุกวัน 18:00 น.",
         "wrap": true,
         "size": "xxs",
-        "color": "#6B7684",
+        "color": "#8A7565",
         "align": "center",
         "margin": "md"
       }

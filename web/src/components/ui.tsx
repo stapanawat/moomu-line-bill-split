@@ -19,6 +19,7 @@ const paths: Record<string, ReactNode> = {
   trash: <path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13" />,
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 17-5-5-9 8" /></>,
   chevron: <path d="m9 6 6 6-6 6" />,
+  edit: <><path d="M4 20h4l10-10-4-4L4 16v4Z" /><path d="m13 7 4 4" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
 };
 export function Icon({ name, size = 18 }: { name: keyof typeof paths | string; size?: number }) {
@@ -30,14 +31,33 @@ export function Icon({ name, size = 18 }: { name: keyof typeof paths | string; s
   );
 }
 
+// ---------------- Sticker (แมว Moomu) ----------------
+export type StickerName = 'bill' | 'paid' | 'due1' | 'due2' | 'due3' | 'due4' | 'due5';
+const STICKER_ALT: Record<StickerName, string> = {
+  bill: 'แมว Moomu ถือใบแจ้งยอด', paid: 'แมว Moomu ดีใจได้รับเงิน',
+  due1: 'แมว Moomu รอยอดค้าง เฟส 1', due2: 'แมว Moomu กังวล เฟส 2', due3: 'แมว Moomu ร้องไห้ เฟส 3',
+  due4: 'แมว Moomu อ้อนขอ เฟส 4', due5: 'แมว Moomu ตกใจ เฟส 5',
+};
+export function Sticker({ name, size = 120, className }: { name: StickerName; size?: number; className?: string }) {
+  return <img className={`sticker ${className || ''}`} src={`/stickers/${name}.png?v=1`} alt={STICKER_ALT[name]} width={size} style={{ width: size }} draggable={false} />;
+}
+/** เฟสค้างชำระ 1-5 นับจากวันที่ในบิล (วันแรก = 1, ตั้งแต่ 5 วัน = 5) */
+export function duePhase(date: string, today = new Date()): 1 | 2 | 3 | 4 | 5 {
+  const start = Date.parse(date.slice(0, 10) + 'T00:00:00Z');
+  const t = Date.parse(today.toISOString().slice(0, 10) + 'T00:00:00Z');
+  const d = Math.floor((t - start) / 864e5);
+  return Math.min(5, Math.max(1, Number.isFinite(d) ? d : 1)) as 1 | 2 | 3 | 4 | 5;
+}
+export const dueSticker = (date: string) => `due${duePhase(date)}` as StickerName;
+
 // ---------------- Alert ----------------
 export type AlertKind = 'info' | 'success' | 'warning' | 'error';
-export function Alert({ kind = 'info', title, children, action, onClose }: {
-  kind?: AlertKind; title: string; children?: ReactNode; action?: ReactNode; onClose?: () => void;
+export function Alert({ kind = 'info', title, children, action, onClose, sticker }: {
+  kind?: AlertKind; title: string; children?: ReactNode; action?: ReactNode; onClose?: () => void; sticker?: StickerName;
 }) {
   return (
-    <div className={`alert alert-${kind}`} role={kind === 'error' || kind === 'warning' ? 'alert' : 'status'}>
-      <span className="alert-icon"><Icon name={kind} size={22} /></span>
+    <div className={`alert alert-${kind} ${sticker ? 'alert-has-sticker' : ''}`} role={kind === 'error' || kind === 'warning' ? 'alert' : 'status'}>
+      {sticker ? <Sticker name={sticker} size={84} className="alert-sticker" /> : <span className="alert-icon"><Icon name={kind} size={22} /></span>}
       <div className="alert-body">
         <div className="alert-title">{title}</div>
         {children && <div className="alert-text">{children}</div>}
@@ -52,7 +72,7 @@ export function Alert({ kind = 'info', title, children, action, onClose }: {
 
 // ---------------- Buttons / Fields ----------------
 export function Button({ variant = 'primary', size, icon, loading, children, ...rest }:
-  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger'; size?: 'sm'; icon?: string; loading?: boolean }) {
+  ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'danger-ghost'; size?: 'sm'; icon?: string; loading?: boolean }) {
   return (
     <button {...rest} className={`btn btn-${variant} ${size === 'sm' ? 'btn-sm' : ''} ${rest.className || ''}`} disabled={rest.disabled || loading}>
       {loading ? <Spinner small /> : icon ? <Icon name={icon} size={size === 'sm' ? 16 : 18} /> : null}

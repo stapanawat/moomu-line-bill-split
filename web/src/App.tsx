@@ -3,16 +3,16 @@ import type { LiveStatus } from './lib/live';
 import { initPlatform, isMock, type Platform } from './lib/platform';
 import GroupPicker from './pages/GroupPicker';
 import type { Api } from './lib/api';
-import type { Member, Session } from './types';
+import type { BillDetail, Member, Session } from './types';
 import { Ctx, errorText, type AppCtx } from './context';
-import { Alert, Avatar, Button, Icon, Loading } from './components/ui';
+import { Alert, Avatar, Button, Icon, Loading, type StickerName } from './components/ui';
 import BillsPage from './pages/BillsPage';
 import NewBillPage from './pages/NewBillPage';
 import SummaryPage from './pages/SummaryPage';
 import PaymentSettings from './pages/PaymentSettings';
 import MyDuesPage from './pages/MyDuesPage';
 
-type Tab = 'bills' | 'new' | 'summary' | 'account' | 'dues';
+type Tab = 'bills' | 'new' | 'summary' | 'account' | 'dues' | 'edit';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'bills', label: 'รายการบิล', icon: 'list' },
   { id: 'new', label: 'สร้างบิล', icon: 'plus' },
@@ -32,10 +32,12 @@ export default function App() {
     const t = new URLSearchParams(location.search).get('tab');
     return t === 'dues' || TABS.some((x) => x.id === t) ? (t as Tab) : 'bills';
   });
-  const [flash, setFlash] = useState<{ title: string; text?: string } | null>(null);
+  const [flash, setFlash] = useState<{ title: string; text?: string; sticker?: StickerName } | null>(null);
+  const [editing, setEditing] = useState<BillDetail | null>(null);
   const [liveTick, setLiveTick] = useState(0);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>('connecting');
   const [notice, setNotice] = useState<string | null>(null);
+  const [noticeSticker, setNoticeSticker] = useState<StickerName | undefined>(undefined);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // รับเหตุการณ์เรียลไทม์: มีคนชำระเงิน สร้างบิล หรือรายชื่อเปลี่ยน -> โหลดข้อมูลใหม่ทันที
@@ -46,6 +48,7 @@ export default function App() {
       if (e.type === 'members') api.session().then((s) => setSession(s)).catch(() => {});
       if (e.message) {
         setNotice(e.message);
+        setNoticeSticker(e.type === 'payment' ? 'paid' : e.type === 'bill_created' ? 'bill' : undefined);
         clearTimeout(noticeTimer.current);
         noticeTimer.current = setTimeout(() => setNotice(null), 5000);
       }
@@ -81,6 +84,8 @@ export default function App() {
       api, session, member: (id) => map.get(id), setMembers, setMe, liveTick,
       inClient: platform?.inClient ?? false,
       closeWindow: () => platform?.closeWindow(),
+      startEdit: (bill) => { setEditing(bill); setTab('edit'); window.scrollTo({ top: 0 }); },
+      notify: (title, text) => { setFlash({ title, text }); setTab('bills'); window.scrollTo({ top: 0 }); },
     };
   }, [api, session, setMembers, setMe, liveTick, platform]);
 
@@ -103,7 +108,7 @@ export default function App() {
       <header className="topbar">
         <div className="container topbar-inner">
           <div className="brand">
-            <span className="brand-mark"><Icon name="receipt" size={20} /></span>
+            <img className="brand-mark brand-cat" src="/stickers/face.png?v=1" alt="" width={40} height={40} />
             <div>
               <div className="brand-title">ระบบหารบิล</div>
               <div className="brand-sub">{ctx.session.group.name}</div>
@@ -127,7 +132,7 @@ export default function App() {
 
       {notice && (
         <div className="live-toast" role="status">
-          <Alert kind="success" title="ข้อมูลอัปเดตแล้ว" onClose={() => setNotice(null)}>{notice}</Alert>
+          <Alert kind="success" title="ข้อมูลอัปเดตแล้ว" sticker={noticeSticker} onClose={() => setNotice(null)}>{notice}</Alert>
         </div>
       )}
       <main className="container main">
@@ -135,17 +140,31 @@ export default function App() {
           <Alert kind="info" title="โหมดข้อมูลตัวอย่าง">ข้อมูลในหน้านี้เป็นข้อมูลจำลองสำหรับทดสอบหน้าตา ไม่ได้เชื่อมต่อกับ LINE หรือฐานข้อมูล</Alert>
         )}
         {flash && tab === 'bills' && (
-          <Alert kind="success" title={flash.title} onClose={() => setFlash(null)}>{flash.text}</Alert>
+          <Alert kind="success" title={flash.title} sticker={flash.sticker} onClose={() => setFlash(null)}>{flash.text}</Alert>
         )}
         {tab === 'bills' && <BillsPage />}
         {tab === 'new' && (
           <NewBillPage onCreated={(announced) => {
             setFlash({
-              title: 'บันทึกรายการเรียบร้อยแล้ว',
+              title: 'บันทึกรายการเรียบร้อยแล้ว', sticker: 'bill',
               text: announced ? 'ระบบได้แจ้งยอดที่ต้องชำระไปยังกลุ่ม LINE แล้ว' : 'บันทึกสำเร็จ แต่ไม่สามารถส่งข้อความแจ้งในกลุ่ม LINE ได้ในขณะนี้',
             });
             go('bills');
           }} />
+        )}
+        {tab === 'edit' && editing && (
+          <NewBillPage key={editing.id} edit={editing}
+            onCancelEdit={() => { setEditing(null); go('bills'); }}
+            onCreated={(announced, financial) => {
+              setEditing(null);
+              setFlash({
+                title: 'บันทึกการแก้ไขบิลเรียบร้อยแล้ว', sticker: 'bill',
+                text: financial
+                  ? (announced ? 'ยอดที่ต้องชำระมีการเปลี่ยนแปลง ระบบได้แจ้งในกลุ่ม LINE แล้ว' : 'ยอดที่ต้องชำระมีการเปลี่ยนแปลง แต่ไม่สามารถแจ้งในกลุ่ม LINE ได้ในขณะนี้')
+                  : 'แก้ไขข้อมูลบิลแล้ว ยอดที่ต้องชำระไม่เปลี่ยนแปลง',
+              });
+              go('bills');
+            }} />
         )}
         {tab === 'summary' && <SummaryPage />}
         {tab === 'account' && <PaymentSettings />}

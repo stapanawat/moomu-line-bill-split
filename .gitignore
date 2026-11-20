@@ -4,3 +4,6 @@ dist/
 .env.local
 *.log
 .DS_Store
+
+# วิดีโอเปิดตัว (ไม่ต้องขึ้น GitHub / Render)
+brag-output/

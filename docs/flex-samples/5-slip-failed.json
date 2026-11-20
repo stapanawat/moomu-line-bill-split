@@ -30,8 +30,9 @@
         "margin": "sm"
       }
     ],
-    "backgroundColor": "#C0352B",
-    "paddingAll": "20px"
+    "backgroundColor": "#B5473A",
+    "paddingAll": "20px",
+    "paddingBottom": "18px"
   },
   "body": {
     "type": "box",
@@ -42,20 +43,20 @@
         "text": "สาเหตุ",
         "wrap": true,
         "size": "sm",
-        "color": "#6B7684"
+        "color": "#8A7565"
       },
       {
         "type": "text",
         "text": "ยอดเงินในสลิปไม่ตรงกับยอดที่ค้างชำระ",
         "wrap": true,
         "size": "md",
-        "color": "#1B2430",
+        "color": "#3B2A20",
         "margin": "sm"
       },
       {
         "type": "separator",
         "margin": "lg",
-        "color": "#E3E7EC"
+        "color": "#EFE2D3"
       },
       {
         "type": "box",
@@ -66,7 +67,7 @@
             "text": "ยอดในสลิป",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -74,7 +75,7 @@
             "text": "100.00 บาท",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "bold"
@@ -87,7 +88,7 @@
         "text": "ยอดที่ค้างชำระ",
         "wrap": true,
         "size": "sm",
-        "color": "#6B7684",
+        "color": "#8A7565",
         "margin": "lg"
       },
       {
@@ -99,7 +100,7 @@
             "text": "Roast Coffee นิมมาน",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -107,7 +108,7 @@
             "text": "142.50 บาท",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "regular"
@@ -118,14 +119,14 @@
       {
         "type": "separator",
         "margin": "lg",
-        "color": "#E3E7EC"
+        "color": "#EFE2D3"
       },
       {
         "type": "text",
         "text": "กรุณาตรวจสอบแล้วส่งสลิปใหม่อีกครั้ง",
         "wrap": true,
         "size": "xs",
-        "color": "#6B7684",
+        "color": "#8A7565",
         "margin": "lg"
       }
     ],
@@ -138,7 +139,7 @@
       {
         "type": "button",
         "style": "primary",
-        "color": "#C0352B",
+        "color": "#B5473A",
         "height": "sm",
         "action": {
           "type": "uri",
@@ -149,5 +150,13 @@
     ],
     "paddingAll": "16px",
     "paddingTop": "0px"
+  },
+  "styles": {
+    "header": {
+      "separator": false
+    },
+    "footer": {
+      "separator": false
+    }
   }
 }

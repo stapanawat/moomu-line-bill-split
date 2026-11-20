@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { Api } from './lib/api';
-import type { Member, Session } from './types';
+import type { BillDetail, Member, Session } from './types';
 
 export interface AppCtx {
   api: Api;
@@ -14,6 +14,10 @@ export interface AppCtx {
   inClient: boolean;
   /** ปิดหน้าเว็บกลับไปที่แชท LINE */
   closeWindow: () => void;
+  /** เปิดหน้าแก้ไขบิล */
+  startEdit: (bill: BillDetail) => void;
+  /** แสดงข้อความสำเร็จบนหน้ารายการบิล */
+  notify: (title: string, text?: string) => void;
 }
 
 export const Ctx = createContext<AppCtx | null>(null);

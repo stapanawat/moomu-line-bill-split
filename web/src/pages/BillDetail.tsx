@@ -4,7 +4,7 @@ import { promptPayPayload } from '../../../shared/billing.js';
 import { useApp, errorText } from '../context';
 import type { BillDetail } from '../types';
 import { baht, maskPromptPay, thDate } from '../lib/format';
-import { Alert, Badge, Button, Empty, Loading, Modal, Person, Segmented } from '../components/ui';
+import { Alert, Badge, Button, Empty, Loading, Modal, Person, Segmented, dueSticker } from '../components/ui';
 import { StatusBadge } from './BillsPage';
 import SlipUploader from '../components/SlipUploader';
 
@@ -54,8 +54,24 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
   bill: BillDetail; view: View; setView: (v: View) => void; target: string; setTarget: (s: string) => void;
   meId: string; member: ReturnType<typeof useApp>['member']; reload: () => void;
 }) {
-  const { session } = useApp();
+  const { session, api, startEdit, notify } = useApp();
   const [uploadFor, setUploadFor] = useState<string | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [reason, setReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const paidOthers = bill.shares.filter((s) => !s.isPayer && s.paidAt);
+  const cancelled = bill.status === 'cancelled';
+
+  const doCancel = async () => {
+    setCancelling(true); setCancelError(null);
+    try {
+      const r = await api.cancelBill(bill.id, reason.trim());
+      notify(`ยกเลิกบิล "${bill.title}" แล้ว`, r.announced ? 'ระบบได้แจ้งการยกเลิกในกลุ่ม LINE แล้ว' : 'ยกเลิกสำเร็จ แต่ไม่สามารถแจ้งในกลุ่ม LINE ได้ในขณะนี้');
+    } catch (e) {
+      setCancelError(errorText(e));
+    } finally { setCancelling(false); }
+  };
   // ผู้รับเงินของบิล หรือผู้ดูแลที่ไม่ได้อยู่ในกลุ่ม แนบสลิปแทนคนอื่นได้
   const canUploadForOthers = meId === bill.payerId || !session.members.some((m) => m.id === meId);
   const uploadShare = uploadFor ? bill.shares.find((s) => s.memberId === uploadFor) : undefined;
@@ -73,10 +89,42 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
         <div className="kv"><span>สถานะ</span><StatusBadge b={bill} /></div>
       </div>
 
-      {myShare && !myShare.isPayer && (
+      {cancelled && (
+        <Alert kind="warning" title="บิลนี้ถูกยกเลิกแล้ว">
+          ไม่ต้องชำระและจะไม่ถูกทวงอีก{bill.cancelReason ? ` เหตุผล: ${bill.cancelReason}` : ''}
+        </Alert>
+      )}
+      {bill.canManage && !confirmCancel && (
+        <div className="manage-bar">
+          <span className="muted">ท่านเป็นผู้สร้างบิลนี้</span>
+          <div className="manage-actions">
+            <Button variant="secondary" size="sm" icon="edit" onClick={() => startEdit(bill)}>แก้ไขบิล</Button>
+            <Button variant="danger-ghost" size="sm" icon="trash" onClick={() => setConfirmCancel(true)}>ยกเลิกบิล</Button>
+          </div>
+        </div>
+      )}
+      {confirmCancel && (
+        <div className="cancel-box">
+          <Alert kind="warning" title={`ยืนยันการยกเลิกบิล "${bill.title}"`}>
+            บิลจะไม่ถูกทวงและไม่นับในสรุปยอดอีก ระบบจะแจ้งสมาชิกในกลุ่ม LINE
+            {paidOthers.length > 0 && <> <b>มีผู้ชำระแล้ว {paidOthers.length} คน</b> ({paidOthers.map((s) => member(s.memberId)?.name).join(', ')}) ผู้รับเงินต้องคืนเงินให้เอง</>}
+          </Alert>
+          {cancelError && <Alert kind="error" title="ยกเลิกบิลไม่สำเร็จ">{cancelError}</Alert>}
+          <label className="field">
+            <span className="field-label">เหตุผล (ไม่บังคับ)</span>
+            <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} placeholder="เช่น บันทึกซ้ำ, ราคาผิด" />
+          </label>
+          <div className="manage-actions">
+            <Button variant="secondary" onClick={() => { setConfirmCancel(false); setCancelError(null); }} disabled={cancelling}>ไม่ยกเลิก</Button>
+            <Button variant="danger" icon="trash" loading={cancelling} onClick={doCancel}>ยืนยันยกเลิกบิล</Button>
+          </div>
+        </div>
+      )}
+
+      {!cancelled && myShare && !myShare.isPayer && (
         myShare.paidAt
-          ? <Alert kind="success" title="ท่านชำระรายการนี้เรียบร้อยแล้ว">ยอด {baht(myShare.amount)} บาท{myShare.transRef ? ` เลขอ้างอิง ${myShare.transRef}` : ''}</Alert>
-          : <Alert kind="warning" title={`ยอดที่ท่านต้องชำระ ${baht(myShare.amount)} บาท`}
+          ? <Alert kind="success" sticker="paid" title="ท่านชำระรายการนี้เรียบร้อยแล้ว">ยอด {baht(myShare.amount)} บาท{myShare.transRef ? ` เลขอ้างอิง ${myShare.transRef}` : ''}</Alert>
+          : <Alert kind="warning" sticker={dueSticker(bill.date)} title={`ยอดที่ท่านต้องชำระ ${baht(myShare.amount)} บาท`}
               action={uploadFor !== meId && <Button size="sm" icon="image" onClick={() => setUploadFor(meId)}>แนบสลิปที่นี่</Button>}>
               สแกน QR ด้านล่างเพื่อโอนเงินให้ {payer?.name} เมื่อโอนแล้ว แนบสลิปที่ปุ่มด้านล่าง หรือส่งรูปสลิปในกลุ่ม LINE ระบบจะตรวจสอบและอัปเดตสถานะให้อัตโนมัติ
             </Alert>
@@ -107,6 +155,8 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
           <div className="viewer-panel">
             {bill.receiptUrl ? <img className="big-image" src={bill.receiptUrl} alt="ใบเสร็จ" /> : <Empty icon="receipt" title="ไม่มีรูปใบเสร็จ">ผู้บันทึกบิลไม่ได้แนบรูปใบเสร็จไว้</Empty>}
           </div>
+        ) : cancelled ? (
+          <div className="viewer-panel"><Alert kind="info" title="ไม่มี QR สำหรับบิลที่ยกเลิกแล้ว" /></div>
         ) : (
           <QrPanel bill={bill} target={target} setTarget={setTarget} meId={meId} member={member} />
         )}
@@ -148,8 +198,8 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
                   <td>{s.isPayer ? <Badge kind="neutral">ผู้รับเงิน</Badge> : s.paidAt ? <Badge kind="success">ชำระแล้ว</Badge> : <Badge kind="danger">รอชำระ</Badge>}</td>
                   <td className="num">
                     {s.slipUrl && <Button variant="ghost" size="sm" icon="image" onClick={() => setView(`slip:${s.memberId}`)}>ดูสลิป</Button>}
-                    {!s.isPayer && !s.paidAt && <Button variant="ghost" size="sm" icon="qr" onClick={() => { setTarget(s.memberId); setView('qr'); }}>QR</Button>}
-                    {!s.isPayer && !s.paidAt && (s.memberId === meId || canUploadForOthers) && (
+                    {!cancelled && !s.isPayer && !s.paidAt && <Button variant="ghost" size="sm" icon="qr" onClick={() => { setTarget(s.memberId); setView('qr'); }}>QR</Button>}
+                    {!cancelled && !s.isPayer && !s.paidAt && (s.memberId === meId || canUploadForOthers) && (
                       <Button variant="ghost" size="sm" icon="image" onClick={() => { setUploadFor(s.memberId); window.scrollTo({ top: 0 }); document.querySelector('.modal-backdrop')?.scrollTo({ top: 0, behavior: 'smooth' }); }}>แนบสลิป</Button>
                     )}
                   </td>

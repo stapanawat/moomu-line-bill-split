@@ -30,8 +30,25 @@
         "margin": "sm"
       }
     ],
-    "backgroundColor": "#06C755",
-    "paddingAll": "20px"
+    "backgroundColor": "#9A5B2B",
+    "paddingAll": "20px",
+    "paddingBottom": "18px"
+  },
+  "hero": {
+    "type": "box",
+    "layout": "vertical",
+    "backgroundColor": "#FFF6EC",
+    "paddingTop": "14px",
+    "paddingBottom": "6px",
+    "contents": [
+      {
+        "type": "image",
+        "url": "https://YOUR-APP.onrender.com/stickers/bill.png?v=1",
+        "size": "full",
+        "aspectRatio": "4:3",
+        "aspectMode": "fit"
+      }
+    ]
   },
   "body": {
     "type": "box",
@@ -42,7 +59,7 @@
         "text": "ขั้นตอนการใช้งาน",
         "wrap": true,
         "size": "sm",
-        "color": "#6B7684"
+        "color": "#8A7565"
       },
       {
         "type": "box",
@@ -53,7 +70,7 @@
             "text": "1",
             "wrap": true,
             "size": "sm",
-            "color": "#06C755",
+            "color": "#9A5B2B",
             "weight": "bold",
             "flex": 1
           },
@@ -62,7 +79,7 @@
             "text": "สมาชิกทุกคนพิมพ์ข้อความใดก็ได้ในกลุ่มหนึ่งครั้ง เพื่อให้ระบบรู้จัก",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 12
           }
         ],
@@ -77,7 +94,7 @@
             "text": "2",
             "wrap": true,
             "size": "sm",
-            "color": "#06C755",
+            "color": "#9A5B2B",
             "weight": "bold",
             "flex": 1
           },
@@ -86,7 +103,7 @@
             "text": "ผู้ที่ชำระบิลไปก่อน เปิดเว็บเพื่อบันทึกบิลและแนบใบเสร็จ",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 12
           }
         ],
@@ -101,7 +118,7 @@
             "text": "3",
             "wrap": true,
             "size": "sm",
-            "color": "#06C755",
+            "color": "#9A5B2B",
             "weight": "bold",
             "flex": 1
           },
@@ -110,7 +127,7 @@
             "text": "สมาชิกสแกน QR ในเว็บเพื่อโอนเงิน แล้วส่งรูปสลิปในกลุ่ม",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 12
           }
         ],
@@ -125,7 +142,7 @@
             "text": "4",
             "wrap": true,
             "size": "sm",
-            "color": "#06C755",
+            "color": "#9A5B2B",
             "weight": "bold",
             "flex": 1
           },
@@ -134,7 +151,7 @@
             "text": "ระบบแจ้งเตือนผู้ที่ยังไม่ชำระทุกวัน เวลา 18:00 น.",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 12
           }
         ],
@@ -143,14 +160,14 @@
       {
         "type": "separator",
         "margin": "lg",
-        "color": "#E3E7EC"
+        "color": "#EFE2D3"
       },
       {
         "type": "text",
-        "text": "พิมพ์ \"เมนู\" เพื่อขอลิงก์ หรือ \"ยอดค้าง\" เพื่อดูยอดคงค้าง",
+        "text": "พิมพ์ \"moomi\" เพื่อขอลิงก์ หรือ \"ยอดค้าง\" เพื่อดูยอดคงค้าง",
         "wrap": true,
         "size": "xs",
-        "color": "#6B7684",
+        "color": "#8A7565",
         "margin": "lg"
       }
     ],
@@ -163,7 +180,7 @@
       {
         "type": "button",
         "style": "primary",
-        "color": "#06C755",
+        "color": "#9A5B2B",
         "height": "sm",
         "action": {
           "type": "uri",
@@ -174,5 +191,13 @@
     ],
     "paddingAll": "16px",
     "paddingTop": "0px"
+  },
+  "styles": {
+    "header": {
+      "separator": false
+    },
+    "footer": {
+      "separator": false
+    }
   }
 }

@@ -45,6 +45,14 @@ export interface BillDetail extends BillSummary {
   receiptUrl: string | null;
   qrUrl: string | null;
   createdAt: string;
+  createdBy: string | null;
+  updatedAt?: string | null;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  /** ผู้ใช้ปัจจุบันแก้ไข/ยกเลิกบิลนี้ได้ (ผู้สร้างบิลหรือผู้ดูแล) */
+  canManage: boolean;
+  /** มีสมาชิกชำระแล้ว: แก้ได้เฉพาะชื่อ วันที่ และรูปใบเสร็จ */
+  hasPayments: boolean;
   items: { name: string; price: number; memberIds: string[] }[];
   shares: BillShare[];
 }

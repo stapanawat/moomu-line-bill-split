@@ -6,27 +6,55 @@ import { ApiError } from '../lib/api';
 import { baht, compressImage, todayIso } from '../lib/format';
 import { Alert, Button, Field, Icon, Person } from '../components/ui';
 import ParticipantPicker from '../components/ParticipantPicker';
-import type { Member } from '../types';
+import type { BillDetail, Member } from '../types';
+import { parseReceipt } from '../../../shared/receipt.js';
+import { ocrReceipt, type OcrStage } from '../lib/ocr';
+
+type ScanState =
+  | { kind: 'idle' }
+  | { kind: 'busy'; stage: OcrStage; pct: number }
+  | { kind: 'done'; level: 'success' | 'warning'; title: string; text: string };
 
 interface ItemDraft { key: number; name: string; price: string; memberIds: string[] | null }
 let keySeq = 1;
 const newItem = (): ItemDraft => ({ key: keySeq++, name: '', price: '', memberIds: null });
 
-export default function NewBillPage({ onCreated }: { onCreated: (announced: boolean) => void }) {
+/** รูปแนบ: keep = ใช้รูปเดิม (แก้ไขบิล), none = ไม่มี/นำออก, new = เลือกรูปใหม่ */
+type ImageState = { kind: 'keep' } | { kind: 'none' } | { kind: 'new'; data: string };
+
+export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
+  onCreated: (announced: boolean, financial?: boolean) => void;
+  /** มีค่า = โหมดแก้ไขบิล */
+  edit?: BillDetail;
+  onCancelEdit?: () => void;
+}) {
   const { api, session, member } = useApp();
   const me = session.me;
-  const [title, setTitle] = useState('');
-  const [date, setDate] = useState(todayIso());
+  const isEdit = Boolean(edit);
+  const locked = Boolean(edit?.hasPayments); // มีคนจ่ายแล้ว: แก้ได้แค่ชื่อ วันที่ ใบเสร็จ
+  const [title, setTitle] = useState(edit?.title ?? '');
+  const [date, setDate] = useState(edit?.date ?? todayIso());
   const meIsMember = session.members.some((m) => m.id === me.id);
-  const [payerId, setPayerId] = useState(meIsMember ? me.id : session.members[0]?.id ?? '');
-  const [promptpay, setPromptpay] = useState(me.promptpayId || '');
-  const [servicePct, setServicePct] = useState('0');
-  const [discount, setDiscount] = useState('0');
-  const [people, setPeopleRaw] = useState<string[]>(payerId ? [payerId] : []);
+  const [payerId, setPayerId] = useState(edit?.payerId ?? (meIsMember ? me.id : session.members[0]?.id ?? ''));
+  const [promptpay, setPromptpay] = useState(edit ? edit.promptpayId ?? '' : me.promptpayId || '');
+  const [servicePct, setServicePct] = useState(String(edit?.servicePct ?? 0));
+  const [discount, setDiscount] = useState(String(edit?.discount ?? 0));
+  const [people, setPeopleRaw] = useState<string[]>(() => {
+    if (!edit) return payerId ? [payerId] : [];
+    return [...new Set([edit.payerId, ...edit.items.flatMap((i) => i.memberIds)])];
+  });
   const setPeople = (ids: string[]) => setPeopleRaw(ids.includes(payerId) ? ids : [payerId, ...ids]);
-  const [items, setItems] = useState<ItemDraft[]>([newItem()]);
-  const [receipt, setReceipt] = useState<string | null>(null);
-  const [qr, setQr] = useState<string | null>(null);
+  const [items, setItems] = useState<ItemDraft[]>(() =>
+    edit ? edit.items.map((i) => ({ key: keySeq++, name: i.name, price: String(i.price), memberIds: [...i.memberIds] })) : [newItem()]);
+  const [receiptState, setReceiptState] = useState<ImageState>(edit?.receiptUrl ? { kind: 'keep' } : { kind: 'none' });
+  const [qrState, setQrState] = useState<ImageState>(edit?.qrUrl ? { kind: 'keep' } : { kind: 'none' });
+  const preview = (s: ImageState, url?: string | null) => (s.kind === 'new' ? s.data : s.kind === 'keep' ? url ?? null : null);
+  const receipt = preview(receiptState, edit?.receiptUrl);
+  const qr = preview(qrState, edit?.qrUrl);
+  const setReceipt = (d: string | null) => setReceiptState(d ? { kind: 'new', data: d } : { kind: 'none' });
+  const setQr = (d: string | null) => setQrState(d ? { kind: 'new', data: d } : { kind: 'none' });
+  /** ค่าที่ส่งให้ API: undefined = คงเดิม, null = นำออก, string = รูปใหม่ */
+  const payloadImage = (s: ImageState) => (s.kind === 'new' ? s.data : s.kind === 'none' ? null : undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -48,6 +76,45 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
   const toggleItemMember = (it: ItemDraft, id: string) => {
     const cur = shareIds(it);
     updateItem(it.key, { memberIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+  };
+
+  const [scan, setScan] = useState<ScanState>({ kind: 'idle' });
+  const scanReceipt = async (file?: File) => {
+    if (!file) return;
+    let image: string;
+    try { image = await compressImage(file, 2000, 0.9); } catch {
+      setScan({ kind: 'done', level: 'warning', title: 'ไม่สามารถอ่านไฟล์รูปได้', text: 'กรุณาเลือกไฟล์รูปภาพ (JPG หรือ PNG)' });
+      return;
+    }
+    if (!receipt) setReceipt(await compressImage(file).catch(() => image));
+    setScan({ kind: 'busy', stage: 'load', pct: 0 });
+    try {
+      const text = await ocrReceipt(image, (stage, pct) => setScan({ kind: 'busy', stage, pct }));
+      const r = parseReceipt(text, { today: todayIso() });
+      const filled: string[] = [];
+      if (r.items.length) {
+        const fresh = r.items.map((i) => ({ key: keySeq++, name: i.name, price: String(i.price), memberIds: null }));
+        setItems((list) => [...list.filter((it) => it.name.trim() || it.price.trim()), ...fresh]);
+        filled.push(`${r.items.length} รายการ`);
+      }
+      if (r.date) { setDate(r.date); filled.push('วันที่'); }
+      if (r.title && !title.trim()) { setTitle(r.title); filled.push('ชื่อร้าน'); }
+      const svc = r.servicePct ?? (Number(servicePct) || 0);
+      const disc = r.discount ?? (Number(discount) || 0);
+      if (r.servicePct != null) { setServicePct(String(r.servicePct)); filled.push(r.vatAdded ? 'ค่าบริการและ VAT' : 'ค่าบริการ'); }
+      if (r.discount != null) { setDiscount(String(r.discount)); filled.push('ส่วนลด'); }
+      if (!r.items.length) {
+        setScan({ kind: 'done', level: 'warning', title: 'อ่านรายการจากใบเสร็จไม่ได้', text: 'กรุณาถ่ายรูปให้ตรง เห็นตัวอักษรชัด และไม่มีเงาบัง หรือกรอกรายการเอง' + (filled.length ? ` (เติมให้แล้ว: ${filled.join(' ')})` : '') });
+        return;
+      }
+      const est = computeShares(r.items.map((i) => ({ price: i.price, memberIds: ['x'] })), svc, disc).total;
+      const mismatch = r.total != null && Math.abs(est - r.total) > 1;
+      setScan(mismatch
+        ? { kind: 'done', level: 'warning', title: `เติมข้อมูลจากใบเสร็จแล้ว: ${filled.join(' ')}`, text: `ยอดที่คำนวณได้ ${baht(est)} ไม่ตรงกับยอดในใบเสร็จ ${baht(r.total!)} บาท อาจมีรายการที่อ่านผิดหรือขาดไป หรือมี VAT แยก กรุณาตรวจสอบก่อนบันทึก` }
+        : { kind: 'done', level: 'success', title: `เติมข้อมูลจากใบเสร็จแล้ว: ${filled.join(' ')}`, text: 'ระบบอ่านจากรูปอัตโนมัติ กรุณาตรวจชื่อรายการและราคาอีกครั้ง แล้วเลือกว่าแต่ละรายการหารกับใคร' });
+    } catch {
+      setScan({ kind: 'done', level: 'warning', title: 'สแกนใบเสร็จไม่สำเร็จ', text: 'โหลดตัวอ่านใบเสร็จไม่ได้ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่ หรือกรอกรายการเอง' });
+    }
   };
 
   const pickImage = async (file: File | undefined, set: (s: string | null) => void, field: string) => {
@@ -91,13 +158,18 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
     setSaving(true);
     try {
       const filled = items.filter((it) => it.name.trim() || it.price);
-      const r = await api.createBill({
+      const input = {
         title: title.trim(), date, payerId, promptpayId: promptpay.trim(),
         servicePct: Number(servicePct) || 0, discount: Number(discount) || 0,
         items: filled.map((it) => ({ name: it.name.trim(), price: Number(it.price), memberIds: shareIds(it) })),
-        receiptImage: receipt, qrImage: qr,
-      });
-      onCreated(r.announced);
+      };
+      if (edit) {
+        const r = await api.updateBill(edit.id, { ...input, receiptImage: payloadImage(receiptState), qrImage: payloadImage(qrState) });
+        onCreated(r.announced, r.financial);
+      } else {
+        const r = await api.createBill({ ...input, receiptImage: receipt, qrImage: qr });
+        onCreated(r.announced);
+      }
     } catch (e) {
       if (e instanceof ApiError && e.fields) setErrors(e.fields);
       setFormError(errorText(e));
@@ -116,6 +188,33 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
         </Alert>
       )}
 
+      {isEdit && (
+        locked
+          ? <Alert kind="warning" title={`กำลังแก้ไขบิล "${edit!.title}"`}>มีสมาชิกชำระเงินแล้ว จึงแก้ไขได้เฉพาะชื่อรายการ วันที่ และรูปใบเสร็จ หากต้องการแก้ยอดเงินหรือรายการ กรุณายกเลิกบิลนี้แล้วสร้างใหม่</Alert>
+          : <Alert kind="info" title={`กำลังแก้ไขบิล "${edit!.title}"`}>ถ้ายอดของสมาชิกเปลี่ยน ระบบจะแจ้งยอดใหม่ในกลุ่ม LINE ให้อัตโนมัติ</Alert>
+      )}
+      {!locked && (
+        <section className="card scan-card">
+          <div className="scan-head">
+            <div>
+              <h2 className="card-title">สแกนใบเสร็จ</h2>
+              <p className="muted">ถ่ายรูปหรือเลือกรูปใบเสร็จ ระบบจะอ่านชื่อรายการ ราคา และวันที่มาเติมให้</p>
+            </div>
+            <label className={`btn btn-secondary ${scan.kind === 'busy' ? 'is-disabled' : ''}`}>
+              <input type="file" accept="image/*" hidden disabled={scan.kind === 'busy'} onChange={(e) => { void scanReceipt(e.target.files?.[0]); e.target.value = ''; }} />
+              <Icon name="receipt" /> {scan.kind === 'busy' ? 'กำลังอ่าน' : 'เลือกรูปใบเสร็จ'}
+            </label>
+          </div>
+          {scan.kind === 'busy' && (
+            <div className="scan-progress" role="status">
+              <span>{scan.stage === 'load' ? 'กำลังเตรียมตัวอ่านใบเสร็จ (ครั้งแรกอาจใช้เวลาสักครู่)' : `กำลังอ่านใบเสร็จ ${scan.pct}%`}</span>
+              <div className="bar"><div style={{ width: `${scan.stage === 'load' ? 8 : Math.max(8, scan.pct)}%` }} /></div>
+            </div>
+          )}
+          {scan.kind === 'done' && <Alert kind={scan.level} title={scan.title} onClose={() => setScan({ kind: 'idle' })}>{scan.text}</Alert>}
+        </section>
+      )}
+
       <section className="card">
         <h2 className="card-title">ข้อมูลบิล</h2>
         <div className="grid-2">
@@ -126,20 +225,20 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
             <DateInput value={date} onChange={setDate} clearable={false} long />
           </Field>
           <Field label="ผู้รับเงิน (ผู้ที่ชำระบิลไปก่อน)">
-            <select value={payerId} onChange={(e) => changePayer(e.target.value)}>
+            <select value={payerId} onChange={(e) => changePayer(e.target.value)} disabled={locked}>
               {payeeOptions.map((m) => <option key={m.id} value={m.id}>{m.name}{m.id === me.id ? ' (ท่าน)' : ''}</option>)}
             </select>
           </Field>
           <Field label="เลขพร้อมเพย์ของผู้รับเงิน" error={errors.promptpayId} hint="เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลัก ระบบจะสร้าง QR พร้อมยอดเงินของแต่ละคนให้" className="span-2">
-            <input inputMode="numeric" value={promptpay} onChange={(e) => setPromptpay(e.target.value)} placeholder="0812345678" />
+            <input inputMode="numeric" value={promptpay} onChange={(e) => setPromptpay(e.target.value)} placeholder="0812345678" disabled={locked} />
           </Field>
         </div>
       </section>
 
-      <ParticipantPicker people={people} setPeople={setPeople} payerId={payerId} error={errors.people} />
+      {!locked && <ParticipantPicker people={people} setPeople={setPeople} payerId={payerId} error={errors.people} />}
 
-      <section className="card">
-        <h2 className="card-title">รายการอาหารและเครื่องดื่ม</h2>
+      <fieldset className="card plain-fieldset" disabled={locked}>
+        <h2 className="card-title">รายการอาหารและเครื่องดื่ม{locked && <span className="lock-tag">ล็อกเนื่องจากมีผู้ชำระแล้ว</span>}</h2>
         {errors.items && <p className="field-error">{errors.items}</p>}
         <div className="items">
           {items.map((it, idx) => (
@@ -177,7 +276,7 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
             <input type="number" inputMode="decimal" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} />
           </Field>
         </div>
-      </section>
+      </fieldset>
 
       <section className="card">
         <h2 className="card-title">เอกสารแนบ</h2>
@@ -185,7 +284,7 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
           <Upload label="รูปใบเสร็จ" hint="สมาชิกทุกคนในกลุ่มเปิดดูได้" value={receipt} error={errors.receiptImage}
             onPick={(f) => pickImage(f, setReceipt, 'receiptImage')} onClear={() => setReceipt(null)} />
           <Upload label="รูป QR รับเงิน (ไม่บังคับ)" hint="ใช้เมื่อไม่ต้องการให้ระบบสร้าง QR จากเลขพร้อมเพย์" value={qr} error={errors.qrImage}
-            onPick={(f) => pickImage(f, setQr, 'qrImage')} onClear={() => setQr(null)} />
+            onPick={(f) => pickImage(f, setQr, 'qrImage')} onClear={() => setQr(null)} disabled={locked} />
         </div>
       </section>
 
@@ -210,15 +309,16 @@ export default function NewBillPage({ onCreated }: { onCreated: (announced: bool
           </table>
         </div>
         <div className="actions">
-          <Button onClick={submit} loading={saving}>บันทึกและแจ้งในกลุ่ม LINE</Button>
+          {isEdit && <Button variant="secondary" onClick={onCancelEdit} disabled={saving}>ยกเลิกการแก้ไข</Button>}
+          <Button onClick={submit} loading={saving}>{isEdit ? 'บันทึกการแก้ไข' : 'บันทึกและแจ้งในกลุ่ม LINE'}</Button>
         </div>
       </section>
     </div>
   );
 }
 
-function Upload({ label, hint, value, error, onPick, onClear }: {
-  label: string; hint: string; value: string | null; error?: string; onPick: (f?: File) => void; onClear: () => void;
+function Upload({ label, hint, value, error, onPick, onClear, disabled }: {
+  label: string; hint: string; value: string | null; error?: string; onPick: (f?: File) => void; onClear: () => void; disabled?: boolean;
 }) {
   return (
     <div className={`field ${error ? 'has-error' : ''}`}>
@@ -226,11 +326,11 @@ function Upload({ label, hint, value, error, onPick, onClear }: {
       {value ? (
         <div className="upload-preview">
           <img src={value} alt={label} />
-          <Button variant="secondary" size="sm" icon="trash" onClick={onClear}>นำรูปออก</Button>
+          {!disabled && <Button variant="secondary" size="sm" icon="trash" onClick={onClear}>นำรูปออก</Button>}
         </div>
       ) : (
-        <label className="upload">
-          <input type="file" accept="image/*" onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
+        <label className={`upload ${disabled ? 'is-disabled' : ''}`}>
+          <input type="file" accept="image/*" disabled={disabled} onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ''; }} />
           <Icon name="image" size={26} />
           <span>แตะเพื่อเลือกรูป</span>
         </label>

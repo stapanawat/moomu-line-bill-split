@@ -1,17 +1,40 @@
-// การ์ด Flex Message ของบอท (โทนทางการ ไม่ใช้อีโมจิ)
+// การ์ด Flex Message ของบอท: ธีมแมวลายส้มน้ำตาล โทนครีมอบอุ่น พร้อมสติกเกอร์ Moomu ตามสถานการณ์
 import { formatBaht } from '../../shared/billing.js';
+import { config } from './config.js';
 
 export const COLORS = {
-  green: '#06C755',
-  teal: '#0E9F6E',
-  amber: '#B7791F',
-  red: '#C0352B',
-  ink: '#1B2430',
-  mute: '#6B7684',
-  line: '#E3E7EC',
-  paid: '#1C7A43',
-  due: '#C0352B',
+  green: '#9A5B2B',   // สีหลัก: น้ำตาลคาราเมล
+  teal: '#3E8E5E',    // ชำระครบ
+  amber: '#C98A2E',   // เตือนเบา ๆ / แก้ไขบิล
+  red: '#B5473A',
+  ink: '#3B2A20',
+  mute: '#8A7565',
+  line: '#EFE2D3',
+  paid: '#3E8E5E',
+  due: '#C0503F',
+  cream: '#FFF6EC',
+  soft: '#FBEBDD',
 };
+
+/** สีหัวการ์ดทวงตามเฟส 1-5 ไล่จากส้มอ่อนไปแดงอิฐ */
+export const DUE_COLORS = ['#D19A3C', '#CB8137', '#C46A37', '#B85437', '#A23E35'];
+
+/** เฟสค้างชำระจากจำนวนวันนับจากวันที่ในบิล: วันแรก = 1, ตั้งแต่ 5 วันขึ้นไป = 5 */
+export function duePhase(billDate, today = new Date()) {
+  const start = Date.parse(String(billDate).slice(0, 10) + 'T00:00:00Z');
+  const t = Date.parse(new Date(today).toISOString().slice(0, 10) + 'T00:00:00Z');
+  const days = Math.floor((t - start) / 864e5);
+  return Math.min(5, Math.max(1, Number.isFinite(days) ? days : 1));
+}
+
+/** ส่วน hero รูปสติกเกอร์ (ไม่มี URL สาธารณะ = ไม่แสดงรูป) */
+export function stickerHero(name, bg = COLORS.cream) {
+  if (!config.stickers || !config.publicUrl) return null;
+  return {
+    type: 'box', layout: 'vertical', backgroundColor: bg, paddingTop: '14px', paddingBottom: '6px',
+    contents: [{ type: 'image', url: `${config.publicUrl}/stickers/${name}.png?v=1`, size: 'full', aspectRatio: '4:3', aspectMode: 'fit' }],
+  };
+}
 
 const MAX_ROWS = 15;
 const money = (n) => formatBaht(n).replace(' บาท', '');
@@ -27,7 +50,7 @@ function header(color, label, title, sub) {
     text(label, { color: '#FFFFFFCC', size: 'sm' }),
     text(title, { color: '#FFFFFF', size: 'xl', weight: 'bold', margin: 'sm', max: 80 }),
     ...(sub ? [text(sub, { color: '#FFFFFFE6', size: 'sm', margin: 'sm' })] : []),
-  ], { backgroundColor: color, paddingAll: '20px' });
+  ], { backgroundColor: color, paddingAll: '20px', paddingBottom: '18px' });
 }
 
 const kv = (k, v, o = {}) => box('horizontal', [
@@ -59,11 +82,13 @@ const footer = (label, uri, color) => box('vertical', [
   { type: 'button', style: 'primary', color, height: 'sm', action: { type: 'uri', label, uri } },
 ], { paddingAll: '16px', paddingTop: '0px' });
 
-const bubble = (h, body, f) => ({
+const bubble = (h, body, f, hero) => ({
   type: 'bubble', size: 'mega',
   header: h,
+  ...(hero ? { hero } : {}),
   body: box('vertical', body, { paddingAll: '20px' }),
   ...(f ? { footer: f } : {}),
+  styles: { header: { separator: false }, footer: { separator: false } },
 });
 
 export const flex = (altText, contents) => ({ type: 'flex', altText: clip(altText, 380), contents });
@@ -71,9 +96,9 @@ export const flex = (altText, contents) => ({ type: 'flex', altText: clip(altTex
 // ---------------- การ์ดแต่ละแบบ ----------------
 
 /** บิลใหม่ */
-export function newBillCard({ title, date, total, payerName, debtors, url }) {
+export function newBillCard({ label = 'บันทึกบิลใหม่', title, date, total, payerName, debtors, url }) {
   return bubble(
-    header(COLORS.green, 'บันทึกบิลใหม่', title, date),
+    header(label === 'บันทึกบิลใหม่' ? COLORS.green : COLORS.amber, label, title, date),
     [
       kv('ยอดรวมบิล', `${money(total)} บาท`, { bold: true, margin: 'none' }),
       kv('ผู้รับเงิน', payerName),
@@ -84,6 +109,7 @@ export function newBillCard({ title, date, total, payerName, debtors, url }) {
       text('เมื่อโอนแล้ว กรุณาส่งรูปสลิปในกลุ่มนี้ ระบบจะตรวจสอบให้อัตโนมัติ', { size: 'xs', color: COLORS.mute, margin: 'lg' }),
     ],
     footer('ชำระเงิน / ดูใบเสร็จ', url, COLORS.green),
+    stickerHero('bill'),
   );
 }
 
@@ -102,6 +128,7 @@ export function paymentCard({ title, date, payerName, amountPaid, payerOfSlip, t
       ...rows(shares),
     ],
     footer('ดูรายละเอียด', url, done ? COLORS.teal : COLORS.green),
+    stickerHero('paid', '#EEF7EF'),
   );
 }
 
@@ -125,9 +152,10 @@ export function failCard({ name, reason, slipAmount, dues = [], url }) {
 }
 
 /** สรุปยอดค้างรวม (การ์ดแรกของข้อความทวง) */
-export function reminderSummaryCard({ dateText, total, people, billCount, url }) {
+export function reminderSummaryCard({ dateText, total, people, billCount, url, phase = 1 }) {
+  const color = DUE_COLORS[phase - 1];
   return bubble(
-    header(COLORS.amber, 'แจ้งเตือนยอดค้างชำระ', `${money(total)} บาท`, `ประจำวันที่ ${dateText}`),
+    header(color, 'แจ้งเตือนยอดค้างชำระ', `${money(total)} บาท`, `ประจำวันที่ ${dateText}`),
     [
       kv('รายการที่ค้าง', `${billCount} รายการ`, { margin: 'none' }),
       sep(),
@@ -136,21 +164,24 @@ export function reminderSummaryCard({ dateText, total, people, billCount, url })
       sep(),
       text('เมื่อโอนแล้ว กรุณาส่งรูปสลิปในกลุ่มนี้ ระบบจะตรวจสอบให้อัตโนมัติ', { size: 'xs', color: COLORS.mute, margin: 'lg' }),
     ],
-    footer('ดูยอดของฉัน / ชำระ', `${url}${url.includes('?') ? '&' : '?'}tab=dues`, COLORS.amber),
+    footer('ดูยอดของฉัน / ชำระ', `${url}${url.includes('?') ? '&' : '?'}tab=dues`, color),
+    stickerHero(`due${phase}`),
   );
 }
 
 /** รายละเอียดยอดค้างของแต่ละบิล */
-export function reminderBillCard({ title, dateText, payerName, debtors, url }) {
+export function reminderBillCard({ title, dateText, payerName, debtors, url, phase = 1 }) {
   const sum = debtors.reduce((a, d) => a + Number(d.amount), 0);
+  const color = DUE_COLORS[phase - 1];
   return bubble(
-    header(COLORS.amber, dateText, title, `ผู้รับเงิน ${payerName}`),
+    header(color, `${dateText} · ค้างเฟสที่ ${phase}`, title, `ผู้รับเงิน ${payerName}`),
     [
       kv('ค้างชำระรวม', `${money(sum)} บาท`, { bold: true, margin: 'none' }),
       sep(),
       ...rows(debtors.map((d) => ({ name: d.name, amount: d.amount, status: 'due' }))),
     ],
-    footer('ชำระเงิน / ดูใบเสร็จ', url, COLORS.amber),
+    footer('ชำระเงิน / ดูใบเสร็จ', url, color),
+    stickerHero(`due${phase}`),
   );
 }
 
@@ -172,6 +203,7 @@ export function welcomeCard({ url, remindTime }) {
       text('พิมพ์ "moomi" เพื่อขอลิงก์ หรือ "ยอดค้าง" เพื่อดูยอดคงค้าง', { size: 'xs', color: COLORS.mute, margin: 'lg' }),
     ],
     footer('เปิดเว็บหารบิล', url, COLORS.green),
+    stickerHero('bill'),
   );
 }
 
@@ -184,9 +216,12 @@ export function menuCard({ groupName, url, dueTotal, dueBills, duePeople, remind
   });
   const link = (path) => `${url}${url.includes('?') ? '&' : '?'}tab=${path}`;
   const hasDue = dueTotal > 0.004;
+  const hero = stickerHero(hasDue ? 'bill' : 'paid', hasDue ? COLORS.cream : '#EEF7EF');
   return {
     type: 'bubble', size: 'mega',
     header: header(COLORS.green, 'Moomi หารบิล', groupName || 'กลุ่ม LINE', 'บันทึกบิล ชำระผ่าน QR ตรวจสลิปอัตโนมัติ'),
+    ...(hero ? { hero } : {}),
+    styles: { header: { separator: false }, footer: { separator: false } },
     body: box('vertical', [
       box('horizontal', [
         box('vertical', [
@@ -199,7 +234,7 @@ export function menuCard({ groupName, url, dueTotal, dueBills, duePeople, remind
           text(`${dueBills} บิล`, { size: 'lg', weight: 'bold', color: COLORS.ink, align: 'end', margin: 'xs' }),
           text(`${duePeople} คน`, { size: 'xs', color: COLORS.mute, align: 'end' }),
         ], { flex: 1 }),
-      ], { backgroundColor: '#F4F6F8', cornerRadius: '12px', paddingAll: '14px' }),
+      ], { backgroundColor: COLORS.soft, cornerRadius: '16px', paddingAll: '14px' }),
       text('เลือกเมนูที่ต้องการ', { size: 'sm', color: COLORS.mute, margin: 'lg' }),
     ], { paddingAll: '20px', paddingBottom: '8px' }),
     footer: box('vertical', [

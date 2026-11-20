@@ -9,6 +9,7 @@ import { computeShares, normalizePromptPay, round2 } from '../../shared/billing.
 import { ensureMember } from './services.js';
 import { publish, subscribe } from './events.js';
 import { processSlip } from './slipflow.js';
+import { validateBill, canManageBill, billHasPayments, financialChanged } from './billrules.js';
 import { formatBaht } from '../../shared/billing.js';
 
 // ---------------- auth ----------------
@@ -108,7 +109,7 @@ async function listBills(req, url) {
 }
 
 async function getBill(req, url, id) {
-  const { group } = await auth(req, url);
+  const { group, me } = await auth(req, url);
   const b = await db.getBill(group.id, id);
   if (!b) throw new HttpError(404, 'bill_not_found', 'ไม่พบรายการนี้');
   const payIds = b.bill_shares.map((s) => s.payment_id).filter(Boolean);
@@ -124,6 +125,12 @@ async function getBill(req, url, id) {
       receiptUrl: urls[b.receipt_path] || null,
       qrUrl: urls[b.qr_path] || null,
       createdAt: b.created_at,
+      createdBy: b.created_by,
+      updatedAt: b.updated_at,
+      cancelledAt: b.cancelled_at,
+      cancelReason: b.cancel_reason,
+      canManage: b.status !== 'cancelled' && canManageBill(me, b, config.adminUserIds),
+      hasPayments: billHasPayments(b),
       items: b.bill_items.sort((x, y) => x.position - y.position).map((i) => ({
         name: i.name, price: Number(i.price), memberIds: i.bill_item_shares.map((s) => s.member_id),
       })),
@@ -148,32 +155,8 @@ async function createBill(req, url) {
   const members = await db.listMembers(group.id);
   const memberIds = new Set(members.map((m) => m.id));
 
-  const fields = {};
-  const title = String(body.title || '').trim();
-  if (!title) fields.title = 'กรุณาระบุชื่อรายการหรือชื่อร้าน';
-  else if (title.length > 120) fields.title = 'ชื่อรายการยาวเกิน 120 ตัวอักษร';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date || '')) fields.date = 'กรุณาระบุวันที่';
-  if (!memberIds.has(body.payerId)) fields.payerId = 'กรุณาเลือกผู้รับเงิน';
-  const pp = body.promptpayId ? normalizePromptPay(body.promptpayId) : null;
-  if (body.promptpayId && !pp) fields.promptpayId = 'เลขพร้อมเพย์ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน 13 หลัก';
-  if (!pp && !body.qrImage) fields.promptpayId = fields.promptpayId || 'กรุณาระบุเลขพร้อมเพย์ หรือแนบรูป QR สำหรับรับเงิน';
-  const servicePct = Number(body.servicePct) || 0;
-  const discount = Number(body.discount) || 0;
-  if (servicePct < 0 || servicePct > 100) fields.servicePct = 'ค่าบริการต้องอยู่ระหว่าง 0–100%';
-  if (discount < 0) fields.discount = 'ส่วนลดต้องไม่ติดลบ';
-
-  const items = (Array.isArray(body.items) ? body.items : [])
-    .map((i) => ({ name: String(i.name || '').trim(), price: round2(Number(i.price) || 0), memberIds: [...new Set(i.memberIds || [])] }))
-    .filter((i) => i.name || i.price);
-  if (!items.length) fields.items = 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ';
-  items.forEach((it, idx) => {
-    if (!it.name) fields[`items.${idx}.name`] = `รายการที่ ${idx + 1}: กรุณาระบุชื่อ`;
-    if (!(it.price > 0)) fields[`items.${idx}.price`] = `รายการที่ ${idx + 1}: ราคาต้องมากกว่า 0`;
-    if (!it.memberIds.length) fields[`items.${idx}.members`] = `รายการที่ ${idx + 1}: กรุณาเลือกผู้ร่วมจ่ายอย่างน้อย 1 คน`;
-    if (it.memberIds.some((m) => !memberIds.has(m))) fields[`items.${idx}.members`] = `รายการที่ ${idx + 1}: มีสมาชิกที่ไม่อยู่ในกลุ่ม`;
-  });
-  const calc = computeShares(items, servicePct, discount);
-  if (items.length && calc.total <= 0) fields.discount = 'ยอดรวมหลังหักส่วนลดต้องมากกว่า 0';
+  const { fields, data } = validateBill(body, memberIds);
+  const { title, pp, servicePct, discount, items, calc } = data;
   if (Object.keys(fields).length) throw new HttpError(400, 'validation', 'กรุณาตรวจสอบข้อมูลให้ครบถ้วน', fields);
 
   const receipt = parseDataUrl(body.receiptImage);
@@ -325,6 +308,110 @@ async function removePreset(req, url, id) {
   return { ok: true };
 }
 
+// ---------------- แก้ไข / ยกเลิกบิล (ผู้สร้างบิลหรือผู้ดูแล) ----------------
+const RPC_ERRORS = {
+  bill_not_editable: [409, 'bill_not_editable', 'บิลนี้ถูกยกเลิกแล้ว หรือไม่สามารถแก้ไขได้'],
+  bill_has_payments: [409, 'bill_locked', 'มีสมาชิกชำระเงินแล้ว จึงแก้ไขยอดเงินหรือรายการไม่ได้ หากต้องการแก้ยอด กรุณายกเลิกบิลนี้แล้วสร้างใหม่'],
+};
+function rpcError(e) {
+  for (const [k, v] of Object.entries(RPC_ERRORS)) if (e.message?.includes(k)) return new HttpError(...v);
+  return e;
+}
+
+async function loadManagedBill(req, url, id) {
+  const ctx = await auth(req, url);
+  const bill = await db.getBill(ctx.group.id, id);
+  if (!bill) throw new HttpError(404, 'bill_not_found', 'ไม่พบรายการนี้');
+  if (bill.status === 'cancelled') throw new HttpError(409, 'bill_not_editable', 'บิลนี้ถูกยกเลิกไปแล้ว');
+  if (!canManageBill(ctx.me, bill, config.adminUserIds)) {
+    throw new HttpError(403, 'forbidden', 'แก้ไขหรือยกเลิกบิลได้เฉพาะผู้ที่สร้างบิลนี้');
+  }
+  return { ...ctx, bill };
+}
+
+async function editBill(req, url, id) {
+  const { group, me, bill } = await loadManagedBill(req, url, id);
+  const body = await readJson(req);
+  const members = await db.listMembers(group.id);
+  const memberIds = new Set(members.map((m) => m.id));
+  const keepQr = body.qrImage === undefined && Boolean(bill.qr_path);
+  const { fields, data } = validateBill(body, memberIds, { hasQr: keepQr });
+  if (Object.keys(fields).length) throw new HttpError(400, 'validation', 'กรุณาตรวจสอบข้อมูลให้ครบถ้วน', fields);
+
+  const financial = financialChanged(bill, data);
+  if (financial && billHasPayments(bill)) throw new HttpError(...RPC_ERRORS.bill_has_payments);
+
+  // รูป: undefined = คงเดิม, null = นำออก, data URL = เปลี่ยนใหม่
+  const base = `bills/${group.id}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  const receipt = body.receiptImage ? parseDataUrl(body.receiptImage) : null;
+  const qr = body.qrImage ? parseDataUrl(body.qrImage) : null;
+  const receiptPath = receipt ? await db.uploadFile(`${base}-receipt.${receipt.ext}`, receipt.buffer, receipt.contentType) : null;
+  const qrPath = qr ? await db.uploadFile(`${base}-qr.${qr.ext}`, qr.buffer, qr.contentType) : null;
+
+  const { title, pp, servicePct, discount, items, calc } = data;
+  try {
+    await db.updateBillRpc({
+      bill_id: bill.id,
+      title,
+      bill_date: data.date,
+      set_receipt: body.receiptImage !== undefined,
+      receipt_path: receiptPath,
+      set_qr: body.qrImage !== undefined,
+      qr_path: qrPath,
+      financial,
+      payer_member_id: data.payerId,
+      promptpay_id: pp,
+      service_pct: servicePct,
+      discount,
+      total: calc.total,
+      items: items.map((i) => ({ name: i.name, price: i.price, member_ids: i.memberIds })),
+      shares: Object.entries(calc.shares).map(([member_id, amount]) => ({ member_id, amount, paid: member_id === data.payerId })),
+    });
+  } catch (e) { throw rpcError(e); }
+
+  publish(group.id, 'bill_updated', { billIds: [bill.id], message: `${me.display_name} แก้ไขบิล "${title}"` });
+
+  // แจ้งในกลุ่มเฉพาะเมื่อยอดเงินเปลี่ยน
+  let announced = false;
+  if (financial && config.announceNewBill) {
+    const byId = new Map(members.map((m) => [m.id, m]));
+    const payer = byId.get(data.payerId);
+    const debtors = Object.entries(calc.shares).filter(([mid]) => mid !== data.payerId).map(([mid, amount]) => ({ member: byId.get(mid), amount }));
+    try {
+      await line.push(group.line_group_id, msg.newBillMessage({ id: bill.id, title, bill_date: data.date, total: calc.total }, payer.display_name, debtors, liffUrl(group.access_key), { edited: true }));
+      announced = true;
+    } catch (e) { console.error('[api] announce edit failed', e.message); }
+  }
+  return { ok: true, financial, announced };
+}
+
+async function cancelBill(req, url, id) {
+  const { group, me, bill } = await loadManagedBill(req, url, id);
+  const body = await readJson(req, 16 * 1024);
+  const reason = String(body.reason || '').trim().slice(0, 200);
+  try {
+    await db.cancelBillRpc({ bill_id: bill.id, cancelled_by: me.line_user_id ? me.id : '', reason });
+  } catch (e) { throw rpcError(e); }
+
+  publish(group.id, 'bill_updated', { billIds: [bill.id], message: `${me.display_name} ยกเลิกบิล "${bill.title}"` });
+
+  let announced = false;
+  if (config.announceNewBill) {
+    const byId = new Map((await db.listMembers(group.id)).map((m) => [m.id, m]));
+    const debt = bill.bill_shares.filter((s) => s.member_id !== bill.payer_member_id);
+    const paid = debt.filter((s) => s.paid_at).map((s) => byId.get(s.member_id)).filter(Boolean);
+    const unpaid = debt.filter((s) => !s.paid_at).map((s) => byId.get(s.member_id)).filter(Boolean);
+    try {
+      await line.push(group.line_group_id, msg.billCancelledMessage(
+        { title: bill.title, bill_date: bill.bill_date, total: Number(bill.total) },
+        { byName: me.display_name, reason, payerName: byId.get(bill.payer_member_id)?.display_name || '-', paid, unpaid },
+      ));
+      announced = true;
+    } catch (e) { console.error('[api] announce cancel failed', e.message); }
+  }
+  return { ok: true, announced };
+}
+
 // ---------------- แนบสลิปจากเว็บ ----------------
 async function uploadSlip(req, url, billId) {
   const { group, me } = await auth(req, url);
@@ -383,10 +470,13 @@ export async function routeApi(req, url) {
   if (m === 'GET' && p === '/api/session') return session(req, url);
   if (m === 'GET' && p === '/api/bills') return listBills(req, url);
   if (m === 'POST' && p === '/api/bills') return createBill(req, url);
+  const cm = /^\/api\/bills\/([0-9a-f-]{36})\/cancel$/i.exec(p);
+  if (m === 'POST' && cm) return cancelBill(req, url, cm[1]);
   const sm = /^\/api\/bills\/([0-9a-f-]{36})\/slip$/i.exec(p);
   if (m === 'POST' && sm) return uploadSlip(req, url, sm[1]);
   const bm = /^\/api\/bills\/([0-9a-f-]{36})$/i.exec(p);
   if (m === 'GET' && bm) return getBill(req, url, bm[1]);
+  if (m === 'PUT' && bm) return editBill(req, url, bm[1]);
   if (m === 'GET' && p === '/api/summary') return summary(req, url);
   if (m === 'PUT' && p === '/api/me/payment') return updatePayment(req, url);
   if (m === 'POST' && p === '/api/members/sync') return syncMembers(req, url);

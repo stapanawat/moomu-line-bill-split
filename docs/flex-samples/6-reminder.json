@@ -33,8 +33,25 @@
             "margin": "sm"
           }
         ],
-        "backgroundColor": "#B7791F",
-        "paddingAll": "20px"
+        "backgroundColor": "#A23E35",
+        "paddingAll": "20px",
+        "paddingBottom": "18px"
+      },
+      "hero": {
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": "#FFF6EC",
+        "paddingTop": "14px",
+        "paddingBottom": "6px",
+        "contents": [
+          {
+            "type": "image",
+            "url": "https://YOUR-APP.onrender.com/stickers/due5.png?v=1",
+            "size": "full",
+            "aspectRatio": "4:3",
+            "aspectMode": "fit"
+          }
+        ]
       },
       "body": {
         "type": "box",
@@ -46,10 +63,10 @@
             "contents": [
               {
                 "type": "text",
-                "text": "จำนวนรายการที่ค้าง",
+                "text": "รายการที่ค้าง",
                 "wrap": true,
                 "size": "sm",
-                "color": "#6B7684",
+                "color": "#8A7565",
                 "flex": 4
               },
               {
@@ -57,7 +74,7 @@
                 "text": "2 รายการ",
                 "wrap": true,
                 "size": "sm",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "align": "end",
                 "flex": 6,
                 "weight": "regular"
@@ -68,14 +85,14 @@
           {
             "type": "separator",
             "margin": "lg",
-            "color": "#E3E7EC"
+            "color": "#EFE2D3"
           },
           {
             "type": "text",
             "text": "ยอดค้างรายบุคคล",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "margin": "lg"
           },
           {
@@ -87,7 +104,7 @@
                 "text": "ต้นกล้า",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "flex": 5,
                 "gravity": "center"
               },
@@ -96,7 +113,7 @@
                 "text": "283.50",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "weight": "bold",
                 "align": "end",
                 "flex": 3,
@@ -107,7 +124,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "align": "end",
                 "flex": 3,
                 "gravity": "center",
@@ -125,7 +142,7 @@
                 "text": "Bank",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "flex": 5,
                 "gravity": "center"
               },
@@ -134,7 +151,7 @@
                 "text": "142.50",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "weight": "bold",
                 "align": "end",
                 "flex": 3,
@@ -145,7 +162,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "align": "end",
                 "flex": 3,
                 "gravity": "center",
@@ -163,7 +180,7 @@
                 "text": "Fern",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "flex": 5,
                 "gravity": "center"
               },
@@ -172,7 +189,7 @@
                 "text": "132.00",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "weight": "bold",
                 "align": "end",
                 "flex": 3,
@@ -183,7 +200,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "align": "end",
                 "flex": 3,
                 "gravity": "center",
@@ -195,14 +212,14 @@
           {
             "type": "separator",
             "margin": "lg",
-            "color": "#E3E7EC"
+            "color": "#EFE2D3"
           },
           {
             "type": "text",
             "text": "เมื่อโอนแล้ว กรุณาส่งรูปสลิปในกลุ่มนี้ ระบบจะตรวจสอบให้อัตโนมัติ",
             "wrap": true,
             "size": "xs",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "margin": "lg"
           }
         ],
@@ -215,17 +232,25 @@
           {
             "type": "button",
             "style": "primary",
-            "color": "#B7791F",
+            "color": "#A23E35",
             "height": "sm",
             "action": {
               "type": "uri",
-              "label": "ชำระผ่าน QR",
-              "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY"
+              "label": "ดูยอดของฉัน / ชำระ",
+              "uri": "https://liff.line.me/LIFF_ID?g=GROUP_KEY&tab=dues"
             }
           }
         ],
         "paddingAll": "16px",
         "paddingTop": "0px"
+      },
+      "styles": {
+        "header": {
+          "separator": false
+        },
+        "footer": {
+          "separator": false
+        }
       }
     },
     {
@@ -237,7 +262,7 @@
         "contents": [
           {
             "type": "text",
-            "text": "19 พ.ย. 2569",
+            "text": "19 พ.ย. 2569 · ค้างเฟสที่ 1",
             "wrap": true,
             "color": "#FFFFFFCC",
             "size": "sm"
@@ -260,8 +285,25 @@
             "margin": "sm"
           }
         ],
-        "backgroundColor": "#B7791F",
-        "paddingAll": "20px"
+        "backgroundColor": "#D19A3C",
+        "paddingAll": "20px",
+        "paddingBottom": "18px"
+      },
+      "hero": {
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": "#FFF6EC",
+        "paddingTop": "14px",
+        "paddingBottom": "6px",
+        "contents": [
+          {
+            "type": "image",
+            "url": "https://YOUR-APP.onrender.com/stickers/due1.png?v=1",
+            "size": "full",
+            "aspectRatio": "4:3",
+            "aspectMode": "fit"
+          }
+        ]
       },
       "body": {
         "type": "box",
@@ -276,7 +318,7 @@
                 "text": "ค้างชำระรวม",
                 "wrap": true,
                 "size": "sm",
-                "color": "#6B7684",
+                "color": "#8A7565",
                 "flex": 4
               },
               {
@@ -284,7 +326,7 @@
                 "text": "305.00 บาท",
                 "wrap": true,
                 "size": "sm",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "align": "end",
                 "flex": 6,
                 "weight": "bold"
@@ -295,7 +337,7 @@
           {
             "type": "separator",
             "margin": "lg",
-            "color": "#E3E7EC"
+            "color": "#EFE2D3"
           },
           {
             "type": "box",
@@ -306,7 +348,7 @@
                 "text": "ต้นกล้า",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "flex": 5,
                 "gravity": "center"
               },
@@ -315,7 +357,7 @@
                 "text": "162.50",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "weight": "bold",
                 "align": "end",
                 "flex": 3,
@@ -326,7 +368,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "align": "end",
                 "flex": 3,
                 "gravity": "center",
@@ -344,7 +386,7 @@
                 "text": "Bank",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "flex": 5,
                 "gravity": "center"
               },
@@ -353,7 +395,7 @@
                 "text": "142.50",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "weight": "bold",
                 "align": "end",
                 "flex": 3,
@@ -364,7 +406,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "align": "end",
                 "flex": 3,
                 "gravity": "center",
@@ -383,7 +425,7 @@
           {
             "type": "button",
             "style": "primary",
-            "color": "#B7791F",
+            "color": "#D19A3C",
             "height": "sm",
             "action": {
               "type": "uri",
@@ -394,6 +436,14 @@
         ],
         "paddingAll": "16px",
         "paddingTop": "0px"
+      },
+      "styles": {
+        "header": {
+          "separator": false
+        },
+        "footer": {
+          "separator": false
+        }
       }
     },
     {
@@ -405,7 +455,7 @@
         "contents": [
           {
             "type": "text",
-            "text": "18 พ.ย. 2569",
+            "text": "14 พ.ย. 2569 · ค้างเฟสที่ 5",
             "wrap": true,
             "color": "#FFFFFFCC",
             "size": "sm"
@@ -428,8 +478,25 @@
             "margin": "sm"
           }
         ],
-        "backgroundColor": "#B7791F",
-        "paddingAll": "20px"
+        "backgroundColor": "#A23E35",
+        "paddingAll": "20px",
+        "paddingBottom": "18px"
+      },
+      "hero": {
+        "type": "box",
+        "layout": "vertical",
+        "backgroundColor": "#FFF6EC",
+        "paddingTop": "14px",
+        "paddingBottom": "6px",
+        "contents": [
+          {
+            "type": "image",
+            "url": "https://YOUR-APP.onrender.com/stickers/due5.png?v=1",
+            "size": "full",
+            "aspectRatio": "4:3",
+            "aspectMode": "fit"
+          }
+        ]
       },
       "body": {
         "type": "box",
@@ -444,7 +511,7 @@
                 "text": "ค้างชำระรวม",
                 "wrap": true,
                 "size": "sm",
-                "color": "#6B7684",
+                "color": "#8A7565",
                 "flex": 4
               },
               {
@@ -452,7 +519,7 @@
                 "text": "253.00 บาท",
                 "wrap": true,
                 "size": "sm",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "align": "end",
                 "flex": 6,
                 "weight": "bold"
@@ -463,7 +530,7 @@
           {
             "type": "separator",
             "margin": "lg",
-            "color": "#E3E7EC"
+            "color": "#EFE2D3"
           },
           {
             "type": "box",
@@ -474,7 +541,7 @@
                 "text": "ต้นกล้า",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "flex": 5,
                 "gravity": "center"
               },
@@ -483,7 +550,7 @@
                 "text": "121.00",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "weight": "bold",
                 "align": "end",
                 "flex": 3,
@@ -494,7 +561,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "align": "end",
                 "flex": 3,
                 "gravity": "center",
@@ -512,7 +579,7 @@
                 "text": "Fern",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "flex": 5,
                 "gravity": "center"
               },
@@ -521,7 +588,7 @@
                 "text": "132.00",
                 "wrap": true,
                 "size": "md",
-                "color": "#1B2430",
+                "color": "#3B2A20",
                 "weight": "bold",
                 "align": "end",
                 "flex": 3,
@@ -532,7 +599,7 @@
                 "text": "รอชำระ",
                 "wrap": true,
                 "size": "xs",
-                "color": "#C0352B",
+                "color": "#C0503F",
                 "align": "end",
                 "flex": 3,
                 "gravity": "center",
@@ -551,7 +618,7 @@
           {
             "type": "button",
             "style": "primary",
-            "color": "#B7791F",
+            "color": "#A23E35",
             "height": "sm",
             "action": {
               "type": "uri",
@@ -562,6 +629,14 @@
         ],
         "paddingAll": "16px",
         "paddingTop": "0px"
+      },
+      "styles": {
+        "header": {
+          "separator": false
+        },
+        "footer": {
+          "separator": false
+        }
       }
     }
   ]

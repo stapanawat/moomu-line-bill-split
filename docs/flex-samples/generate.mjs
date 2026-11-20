@@ -17,6 +17,6 @@ save('4-paid-complete', m.paymentSuccessMessage(mem('Bank', 4), { amount: 142.5,
 save('5-slip-failed', m.paymentFailMessage(mem('Bank', 4), 'amount', { slipAmount: 100, dues: [{ title: 'Roast Coffee นิมมาน', amount: 142.5 }], url }));
 save('6-reminder', m.reminderMessages([
   { id: 'b1', title: 'Roast Coffee นิมมาน', bill_date: '2026-11-19', payerName: 'มายด์', debtors: [{ member: mem('ต้นกล้า', 3), amount: 162.5 }, { member: mem('Bank', 4), amount: 142.5 }] },
-  { id: 'b2', title: 'ทริปเชียงใหม่ มื้อเย็น', bill_date: '2026-11-18', payerName: 'Bank', debtors: [{ member: mem('ต้นกล้า', 3), amount: 121 }, { member: mem('Fern', 2), amount: 132 }] },
+  { id: 'b2', title: 'ทริปเชียงใหม่ มื้อเย็น', bill_date: '2026-11-14', payerName: 'Bank', debtors: [{ member: mem('ต้นกล้า', 3), amount: 121 }, { member: mem('Fern', 2), amount: 132 }] },
 ], url, '2026-11-20T11:00:00Z'));
 console.log(fs.readdirSync(out).join(' '));

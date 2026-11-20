@@ -113,6 +113,8 @@ export async function getBill(groupId, billId) {
 }
 export const createBillRpc = (payload) => rest('rpc/create_bill', { method: 'POST', body: { p: payload } });
 export const recordPaymentRpc = (payload) => rest('rpc/record_payment', { method: 'POST', body: { p: payload } });
+export const updateBillRpc = (payload) => rest('rpc/update_bill', { method: 'POST', body: { p: payload } });
+export const cancelBillRpc = (payload) => rest('rpc/cancel_bill', { method: 'POST', body: { p: payload } });
 
 /** ยอดค้างทั้งหมดของกลุ่ม: [{bill_id, member_id, amount, bills:{...}}] */
 export const listUnpaidShares = (groupId) =>

@@ -61,7 +61,7 @@ let presets: MemberPreset[] = [
 ];
 const bills: BillDetail[] = [];
 
-function addBill(input: NewBillInput, paid: string[] = [], daysOld = 0): BillDetail {
+function addBill(input: NewBillInput, paid: string[] = [], daysOld = 0, createdBy: string = ME): BillDetail {
   const calc = computeShares(input.items, input.servicePct, input.discount);
   const id = `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`;
   const shares = Object.entries(calc.shares).map(([memberId, amount]) => {
@@ -86,6 +86,7 @@ function addBill(input: NewBillInput, paid: string[] = [], daysOld = 0): BillDet
     promptpayId: normalizePromptPay(input.promptpayId), servicePct: input.servicePct, discount: input.discount,
     receiptUrl: input.receiptImage || null, qrUrl: input.qrImage || null,
     createdAt: new Date(Date.now() - daysOld * 864e5).toISOString(),
+    createdBy, canManage: false, hasPayments: false,
     items: input.items, shares,
   };
   bills.unshift(bill);
@@ -106,16 +107,26 @@ function addBill(input: NewBillInput, paid: string[] = [], daysOld = 0): BillDet
     { name: 'Eggs Benedict', price: 280, memberIds: ['m2'] }, { name: 'Pancake', price: 220, memberIds: ['m5'] },
     { name: 'Big Breakfast', price: 320, memberIds: ['m6'] }, { name: 'Cold Brew x3', price: 270, memberIds: ['m2', 'm5', 'm6'] },
   ];
-  addBill({ title: 'Brunch Café Ari', date: daysAgo(6), payerId: 'm2', promptpayId: '0898765432', servicePct: 0, discount: 50, items: c, receiptImage: receiptSvg('Brunch Cafe Ari', c, 1040) }, ['m5', 'm6'], 6);
-  addBill({ title: 'ทริปเชียงใหม่ มื้อเย็น', date: daysAgo(1), payerId: 'm4', promptpayId: '0861112233', servicePct: 10, discount: 0, items: b, receiptImage: receiptSvg('Khao Soi House', b, 616) }, ['m1', 'm5'], 1);
-  addBill({ title: 'Roast Coffee นิมมาน', date: daysAgo(0), payerId: 'm1', promptpayId: '0812345678', servicePct: 0, discount: 0, items: a, receiptImage: receiptSvg('Roast Coffee', a, 575) }, ['m2'], 0);
+  addBill({ title: 'Brunch Café Ari', date: daysAgo(6), payerId: 'm2', promptpayId: '0898765432', servicePct: 0, discount: 50, items: c, receiptImage: receiptSvg('Brunch Cafe Ari', c, 1040) }, ['m5', 'm6'], 6, 'm2');
+  addBill({ title: 'ทริปเชียงใหม่ มื้อเย็น', date: daysAgo(1), payerId: 'm4', promptpayId: '0861112233', servicePct: 10, discount: 0, items: b, receiptImage: receiptSvg('Khao Soi House', b, 616) }, ['m1', 'm5'], 1, 'm4');
+  // ต้นกล้า (ผู้ใช้ตัวอย่าง) บันทึกบิลนี้ให้มายด์ ซึ่งเป็นผู้รับเงิน และมี Fern ชำระแล้ว -> แก้ได้เฉพาะชื่อ/วันที่/ใบเสร็จ
+  addBill({ title: 'Roast Coffee นิมมาน', date: daysAgo(0), payerId: 'm1', promptpayId: '0812345678', servicePct: 0, discount: 0, items: a, receiptImage: receiptSvg('Roast Coffee', a, 575) }, ['m2'], 0, ME);
 })();
 
 const summaryOf = (b: BillDetail) => {
-  const { promptpayId, servicePct, discount, receiptUrl, qrUrl, createdAt, items, shares, ...s } = b;
-  void promptpayId; void servicePct; void discount; void receiptUrl; void qrUrl; void createdAt; void items; void shares;
+  const { promptpayId, servicePct, discount, receiptUrl, qrUrl, createdAt, items, shares, createdBy, canManage, hasPayments, ...s } = b;
+  void promptpayId; void servicePct; void discount; void receiptUrl; void qrUrl; void createdAt; void items; void shares; void createdBy; void canManage; void hasPayments;
   return s;
 };
+const active = () => bills.filter((b) => b.status !== 'cancelled');
+
+/** สร้างบิลใหม่จากข้อมูลที่แก้ไข โดยคงสถานะการชำระของคนที่จ่ายแล้ว */
+function rebuild(b: BillDetail, input: NewBillInput) {
+  const paid = b.shares.filter((s) => s.paidAt && !s.isPayer).map((s) => s.memberId);
+  const fresh = addBill({ ...input, receiptImage: input.receiptImage === undefined ? b.receiptUrl : input.receiptImage, qrImage: input.qrImage === undefined ? b.qrUrl : input.qrImage }, paid, 0, b.createdBy ?? ME);
+  bills.splice(bills.indexOf(fresh), 1);
+  Object.assign(b, { ...fresh, id: b.id, createdAt: b.createdAt, createdBy: b.createdBy, updatedAt: new Date().toISOString() });
+}
 
 export const mockApi: Api = {
   async session() {
@@ -127,7 +138,7 @@ export const mockApi: Api = {
     await wait();
     if (mockError === 'bills') throw new ApiError(0, { code: 'network', message: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง' });
     const t = (q || '').toLowerCase();
-    return bills
+    return active()
       .filter((b) => (!from || b.date >= from) && (!to || b.date <= to))
       .filter((b) => !t || [b.title, ...b.itemNames, ...b.memberIds.map((id) => byId(id).name)].join(' ').toLowerCase().includes(t))
       .sort((a, b) => b.date.localeCompare(a.date))
@@ -137,7 +148,36 @@ export const mockApi: Api = {
     await wait(250);
     const b = bills.find((x) => x.id === id);
     if (!b) throw new ApiError(404, { code: 'bill_not_found', message: 'ไม่พบรายการนี้' });
-    return structuredClone(b);
+    const hasPayments = b.shares.some((s) => s.paidAt && !s.isPayer);
+    return structuredClone({ ...b, hasPayments, canManage: b.status !== 'cancelled' && b.createdBy === ME });
+  },
+  async updateBill(id, input) {
+    await wait(600);
+    const b = bills.find((x) => x.id === id);
+    if (!b || b.status === 'cancelled') throw new ApiError(409, { code: 'bill_not_editable', message: 'บิลนี้ถูกยกเลิกไปแล้ว' });
+    if (b.createdBy !== ME) throw new ApiError(403, { code: 'forbidden', message: 'แก้ไขหรือยกเลิกบิลได้เฉพาะผู้ที่สร้างบิลนี้' });
+    if (!input.title.trim()) throw new ApiError(400, { code: 'validation', message: 'กรุณาตรวจสอบข้อมูลให้ครบถ้วน', fields: { title: 'กรุณาระบุชื่อรายการหรือชื่อร้าน' } });
+    const key = (x: { name: string; price: number; memberIds: string[] }[]) => JSON.stringify(x.map((i) => [i.name, Number(i.price), [...i.memberIds].sort()]));
+    const financial = key(b.items) !== key(input.items) || b.payerId !== input.payerId || (b.promptpayId ?? '') !== (normalizePromptPay(input.promptpayId) ?? '')
+      || b.servicePct !== input.servicePct || b.discount !== input.discount;
+    const hasPayments = b.shares.some((s) => s.paidAt && !s.isPayer);
+    if (financial && hasPayments) throw new ApiError(409, { code: 'bill_locked', message: 'มีสมาชิกชำระเงินแล้ว จึงแก้ไขยอดเงินหรือรายการไม่ได้ หากต้องการแก้ยอด กรุณายกเลิกบิลนี้แล้วสร้างใหม่' });
+    if (financial) rebuild(b, input);
+    else {
+      Object.assign(b, { title: input.title, date: input.date, updatedAt: new Date().toISOString() });
+      if (input.receiptImage !== undefined) Object.assign(b, { receiptUrl: input.receiptImage, hasReceipt: Boolean(input.receiptImage) });
+    }
+    emit({ type: 'bill_updated', billIds: [id], message: `${byId(ME).name} แก้ไขบิล "${input.title}"` });
+    return { ok: true as const, financial, announced: financial };
+  },
+  async cancelBill(id, reason) {
+    await wait(500);
+    const b = bills.find((x) => x.id === id);
+    if (!b || b.status === 'cancelled') throw new ApiError(409, { code: 'bill_not_editable', message: 'บิลนี้ถูกยกเลิกไปแล้ว' });
+    if (b.createdBy !== ME) throw new ApiError(403, { code: 'forbidden', message: 'แก้ไขหรือยกเลิกบิลได้เฉพาะผู้ที่สร้างบิลนี้' });
+    Object.assign(b, { status: 'cancelled', cancelledAt: new Date().toISOString(), cancelReason: reason || null });
+    emit({ type: 'bill_updated', billIds: [id], message: `${byId(ME).name} ยกเลิกบิล "${b.title}"` });
+    return { ok: true as const, announced: true };
   },
   async createBill(input) {
     await wait(600);
@@ -154,7 +194,7 @@ export const mockApi: Api = {
   async summary({ from, to }) {
     await wait();
     const per = new Map<string, { memberId: string; total: number; paid: number; due: number; dueBills: { billId: string; title: string; date: string; amount: number; payerName: string }[] }>();
-    for (const b of bills.filter((x) => (!from || x.date >= from) && (!to || x.date <= to))) {
+    for (const b of active().filter((x) => (!from || x.date >= from) && (!to || x.date <= to))) {
       for (const s of b.shares) {
         if (s.isPayer) continue;
         const r = per.get(s.memberId) || { memberId: s.memberId, total: 0, paid: 0, due: 0, dueBills: [] };
@@ -166,7 +206,7 @@ export const mockApi: Api = {
     }
     const rows = [...per.values()].map((r) => ({ ...r, total: round2(r.total), paid: round2(r.paid), due: round2(r.due) })).sort((a, b) => b.due - a.due);
     const sum = (k: 'total' | 'paid' | 'due') => round2(rows.reduce((a, r) => a + r[k], 0));
-    const list = bills.filter((x) => (!from || x.date >= from) && (!to || x.date <= to)).map((b) => ({
+    const list = active().filter((x) => (!from || x.date >= from) && (!to || x.date <= to)).map((b) => ({
       id: b.id, title: b.title, date: b.date, total: b.total, payerId: b.payerId,
       shares: b.shares.map((s) => ({ memberId: s.memberId, amount: s.amount, paid: Boolean(s.paidAt), isPayer: s.isPayer })),
     }));

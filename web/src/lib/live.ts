@@ -1,6 +1,6 @@
 // รับเหตุการณ์เรียลไทม์จากเซิร์ฟเวอร์ (Server-Sent Events ผ่าน fetch เพื่อส่ง token ใน header ได้)
 export interface LiveEvent {
-  type: 'payment' | 'bill_created' | 'members' | 'presets' | 'ready';
+  type: 'payment' | 'bill_created' | 'bill_updated' | 'members' | 'presets' | 'ready';
   at?: number;
   billIds?: string[];
   memberId?: string;

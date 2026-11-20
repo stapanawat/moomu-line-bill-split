@@ -46,11 +46,13 @@ export function menuMessage(url, { groupName, dues } = {}) {
  * @param bill {id,title,bill_date,total}
  * @param debtors [{member:{line_user_id,display_name}, amount}]
  */
-export function newBillMessage(bill, payerName, debtors, url) {
+export function newBillMessage(bill, payerName, debtors, url, { edited = false } = {}) {
   const u = billUrl(url, bill.id);
+  const head = edited ? `แก้ไขบิล "${bill.title}" ยอดที่ต้องชำระมีการเปลี่ยนแปลง ผู้ที่ต้องชำระ:` : `บันทึกบิลใหม่ "${bill.title}" ผู้ที่ต้องชำระ:`;
   return [
-    ...mentionMessages(`บันทึกบิลใหม่ "${bill.title}" ผู้ที่ต้องชำระ:`, debtors.map((d) => d.member), ' กรุณาตรวจสอบยอดในการ์ดด้านล่าง'),
-    card.flex(`บิลใหม่ ${bill.title} ยอดรวม ${formatBaht(bill.total)}`, card.newBillCard({
+    ...mentionMessages(head, debtors.map((d) => d.member), ' กรุณาตรวจสอบยอดในการ์ดด้านล่าง'),
+    card.flex(`${edited ? 'แก้ไขบิล' : 'บิลใหม่'} ${bill.title} ยอดรวม ${formatBaht(bill.total)}`, card.newBillCard({
+      label: edited ? 'แก้ไขบิล' : 'บันทึกบิลใหม่',
       title: bill.title, date: thDate(bill.bill_date), total: bill.total, payerName,
       debtors: debtors.map((d) => ({ name: d.member.display_name, amount: d.amount })), url: u,
     })),
@@ -115,12 +117,14 @@ export function reminderMessages(groupDues, url, today = new Date().toISOString(
   const people = [...per.values()].sort((a, b) => b.amount - a.amount);
   const total = round2(people.reduce((s, p) => s + p.amount, 0));
   const dateText = thDate(today);
+  const phaseOf = (g) => card.duePhase(g.bill_date, today);
+  const maxPhase = Math.max(1, ...groupDues.map(phaseOf));
 
   const mentions = mentionMessages(`แจ้งเตือนยอดค้างชำระ ประจำวันที่ ${dateText}`, people.map((p) => p.member), ' กรุณาชำระและส่งสลิปในกลุ่มนี้').slice(0, 4);
   const bubbles = [
-    card.reminderSummaryCard({ dateText, total, billCount: groupDues.length, url, people: people.map((p) => ({ name: p.member.display_name, amount: round2(p.amount) })) }),
+    card.reminderSummaryCard({ dateText, total, billCount: groupDues.length, url, phase: maxPhase, people: people.map((p) => ({ name: p.member.display_name, amount: round2(p.amount) })) }),
     ...groupDues.slice(0, 11).map((g) => card.reminderBillCard({
-      title: g.title, dateText: thDate(g.bill_date), payerName: g.payerName, url: billUrl(url, g.id),
+      title: g.title, dateText: thDate(g.bill_date), payerName: g.payerName, url: billUrl(url, g.id), phase: phaseOf(g),
       debtors: g.debtors.map((d) => ({ name: d.member.display_name, amount: d.amount })),
     })),
   ];
@@ -130,4 +134,29 @@ export function reminderMessages(groupDues, url, today = new Date().toISOString(
     ...mentions,
     card.flex(`แจ้งเตือนยอดค้างชำระ รวม ${formatBaht(total)}`, { type: 'carousel', contents: bubbles }),
   ];
+}
+
+/**
+ * แจ้งยกเลิกบิล
+ * @param info { byName, reason, payerName, paid: member[], unpaid: member[] }
+ */
+export function billCancelledMessage(bill, { byName, reason, payerName, paid = [], unpaid = [] }) {
+  const b = textV2();
+  b.line(`ยกเลิกบิล "${bill.title}" (${thDate(bill.bill_date)}) ยอดรวม ${formatBaht(bill.total)}`);
+  b.line(`ยกเลิกโดย ${byName}`);
+  if (reason) b.line(`เหตุผล: ${reason}`);
+  if (unpaid.length) {
+    b.line('');
+    b.add('ไม่ต้องชำระรายการนี้แล้ว: ');
+    unpaid.forEach((m, i) => { if (i) b.add(' '); b.mention(m.line_user_id, m.display_name); });
+    b.line('');
+  }
+  if (paid.length) {
+    b.line('');
+    b.add('ผู้ที่ชำระไปแล้ว: ');
+    paid.forEach((m, i) => { if (i) b.add(' '); b.mention(m.line_user_id, m.display_name); });
+    b.line('');
+    b.add(`กรุณาติดต่อ ${payerName} เพื่อรับเงินคืน`);
+  }
+  return b.build();
 }

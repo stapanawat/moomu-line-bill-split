@@ -18,6 +18,9 @@ export interface Api {
   listBills(f: { q?: string; from?: string; to?: string }): Promise<BillSummary[]>;
   getBill(id: string): Promise<BillDetail>;
   createBill(input: NewBillInput): Promise<{ id: string; announced: boolean }>;
+  /** รูป: ไม่ส่งคีย์ = คงเดิม, null = นำออก, data URL = เปลี่ยนใหม่ */
+  updateBill(id: string, input: NewBillInput): Promise<{ ok: true; financial: boolean; announced: boolean }>;
+  cancelBill(id: string, reason: string): Promise<{ ok: true; announced: boolean }>;
   summary(f: { from?: string; to?: string }): Promise<Summary>;
   updatePayment(p: { promptpayId: string; bankAccount: string; accountName: string }): Promise<Member>;
   syncMembers(): Promise<{ members: Member[]; fullList: boolean }>;
@@ -64,6 +67,8 @@ export function createHttpApi(groupKey: string, getToken: () => string | null): 
     listBills: async (f) => (await call<{ bills: BillSummary[] }>('GET', '/api/bills', f)).bills,
     getBill: async (id) => (await call<{ bill: BillDetail }>('GET', `/api/bills/${id}`)).bill,
     createBill: (input) => call('POST', '/api/bills', {}, input),
+    updateBill: (id, input) => call('PUT', `/api/bills/${id}`, {}, input),
+    cancelBill: (id, reason) => call('POST', `/api/bills/${id}/cancel`, {}, { reason }),
     summary: (f) => call('GET', '/api/summary', f),
     updatePayment: async (p) => (await call<{ me: Member }>('PUT', '/api/me/payment', {}, p)).me,
     syncMembers: () => call('POST', '/api/members/sync'),

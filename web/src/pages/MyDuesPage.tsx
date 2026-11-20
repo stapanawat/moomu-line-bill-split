@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useApp, errorText } from '../context';
 import type { SummaryRow } from '../types';
 import { baht, thDate } from '../lib/format';
-import { Alert, Button, Icon, Loading } from '../components/ui';
+import { Alert, Button, Icon, Loading, Sticker, duePhase, dueSticker } from '../components/ui';
 import BillDetailModal from './BillDetail';
 
 const AUTO_CLOSE_SECONDS = 5;
@@ -32,12 +32,17 @@ export default function MyDuesPage({ onShowBills }: { onShowBills: () => void })
   if (row === undefined) return <Loading text="กำลังตรวจสอบยอดค้างของท่าน" />;
   if (row === null) return <NoDues inClient={inClient} closeWindow={closeWindow} onShowBills={onShowBills} paused={openId !== null} />;
 
+  const oldest = row.dueBills.reduce((a, b) => (b.date < a ? b.date : a), row.dueBills[0]?.date ?? new Date().toISOString());
+  const phase = duePhase(oldest);
   return (
     <div className="stack">
-      <section className="due-hero">
-        <div className="due-hero-k">ยอดค้างชำระของท่าน</div>
-        <div className="due-hero-v">{baht(row.due)} <small>บาท</small></div>
-        <div className="due-hero-sub">{row.dueBills.length} รายการ · กดรายการเพื่อดู QR และแนบสลิป</div>
+      <section className={`due-hero due-phase-${phase}`}>
+        <div className="due-hero-info">
+          <div className="due-hero-k">ยอดค้างชำระของท่าน</div>
+          <div className="due-hero-v">{baht(row.due)} <small>บาท</small></div>
+          <div className="due-hero-sub">{row.dueBills.length} รายการ · กดรายการเพื่อดู QR และแนบสลิป</div>
+        </div>
+        <Sticker name={dueSticker(oldest)} size={132} className="due-hero-cat" />
       </section>
 
       <section className="card card-flush">
@@ -47,7 +52,7 @@ export default function MyDuesPage({ onShowBills }: { onShowBills: () => void })
               <button className="bill-row" onClick={() => setOpenId(b.billId)}>
                 <div className="bill-main">
                   <div className="bill-title">{b.title}</div>
-                  <div className="bill-meta"><span className="muted">{thDate(b.date)} · ชำระให้ {b.payerName}</span></div>
+                  <div className="bill-meta"><span className="muted">{thDate(b.date)} · ชำระให้ {b.payerName}</span> <span className={`phase-tag phase-${duePhase(b.date)}`}>ค้างเฟส {duePhase(b.date)}</span></div>
                 </div>
                 <div className="bill-right">
                   <div className="bill-total text-danger">{baht(b.amount)}</div>
@@ -83,7 +88,7 @@ function NoDues({ inClient, closeWindow, onShowBills, paused }: {
 
   return (
     <section className="card no-dues">
-      <span className="no-dues-icon"><Icon name="success" size={44} /></span>
+      <Sticker name="paid" size={170} className="no-dues-cat" />
       <h2>ไม่มียอดค้างชำระ</h2>
       <p className="muted">ท่านชำระครบทุกรายการแล้ว ขอบคุณที่ชำระตรงเวลา</p>
       <div className="no-dues-actions">

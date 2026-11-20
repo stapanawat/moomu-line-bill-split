@@ -30,8 +30,25 @@
         "margin": "sm"
       }
     ],
-    "backgroundColor": "#06C755",
-    "paddingAll": "20px"
+    "backgroundColor": "#9A5B2B",
+    "paddingAll": "20px",
+    "paddingBottom": "18px"
+  },
+  "hero": {
+    "type": "box",
+    "layout": "vertical",
+    "backgroundColor": "#EEF7EF",
+    "paddingTop": "14px",
+    "paddingBottom": "6px",
+    "contents": [
+      {
+        "type": "image",
+        "url": "https://YOUR-APP.onrender.com/stickers/paid.png?v=1",
+        "size": "full",
+        "aspectRatio": "4:3",
+        "aspectMode": "fit"
+      }
+    ]
   },
   "body": {
     "type": "box",
@@ -46,7 +63,7 @@
             "text": "รายการ",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -54,7 +71,7 @@
             "text": "Roast Coffee นิมมาน",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "regular"
@@ -71,7 +88,7 @@
             "text": "วันที่",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -79,7 +96,7 @@
             "text": "19 พ.ย. 2569",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "regular"
@@ -96,7 +113,7 @@
             "text": "เลขอ้างอิง",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -104,7 +121,7 @@
             "text": "016324153045BPM07432",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "regular"
@@ -121,7 +138,7 @@
             "text": "ความคืบหน้า",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -129,7 +146,7 @@
             "text": "ชำระแล้ว 2/3 คน",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "bold"
@@ -140,7 +157,7 @@
       {
         "type": "separator",
         "margin": "lg",
-        "color": "#E3E7EC"
+        "color": "#EFE2D3"
       },
       {
         "type": "box",
@@ -151,7 +168,7 @@
             "text": "Bank",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 5,
             "gravity": "center"
           },
@@ -160,7 +177,7 @@
             "text": "142.50",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "weight": "bold",
             "align": "end",
             "flex": 3,
@@ -171,7 +188,7 @@
             "text": "รอชำระ",
             "wrap": true,
             "size": "xs",
-            "color": "#C0352B",
+            "color": "#C0503F",
             "align": "end",
             "flex": 3,
             "gravity": "center",
@@ -189,7 +206,7 @@
             "text": "Fern",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 5,
             "gravity": "center"
           },
@@ -198,7 +215,7 @@
             "text": "122.50",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "weight": "bold",
             "align": "end",
             "flex": 3,
@@ -209,7 +226,7 @@
             "text": "ชำระแล้ว",
             "wrap": true,
             "size": "xs",
-            "color": "#1C7A43",
+            "color": "#3E8E5E",
             "align": "end",
             "flex": 3,
             "gravity": "center",
@@ -227,7 +244,7 @@
             "text": "ต้นกล้า",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 5,
             "gravity": "center"
           },
@@ -236,7 +253,7 @@
             "text": "162.50",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "weight": "bold",
             "align": "end",
             "flex": 3,
@@ -247,7 +264,7 @@
             "text": "ชำระแล้ว",
             "wrap": true,
             "size": "xs",
-            "color": "#1C7A43",
+            "color": "#3E8E5E",
             "align": "end",
             "flex": 3,
             "gravity": "center",
@@ -265,7 +282,7 @@
             "text": "มายด์",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 5,
             "gravity": "center"
           },
@@ -274,7 +291,7 @@
             "text": "147.50",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "weight": "bold",
             "align": "end",
             "flex": 3,
@@ -285,7 +302,7 @@
             "text": "ผู้รับเงิน",
             "wrap": true,
             "size": "xs",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "align": "end",
             "flex": 3,
             "gravity": "center",
@@ -304,7 +321,7 @@
       {
         "type": "button",
         "style": "primary",
-        "color": "#06C755",
+        "color": "#9A5B2B",
         "height": "sm",
         "action": {
           "type": "uri",
@@ -315,5 +332,13 @@
     ],
     "paddingAll": "16px",
     "paddingTop": "0px"
+  },
+  "styles": {
+    "header": {
+      "separator": false
+    },
+    "footer": {
+      "separator": false
+    }
   }
 }

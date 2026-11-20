@@ -36,6 +36,10 @@ export const config = {
     timezone: env.TIMEZONE || 'Asia/Bangkok',
   },
 
+  // URL สาธารณะของเว็บ ใช้สร้างลิงก์รูปสติกเกอร์ในการ์ด LINE (Render ตั้ง RENDER_EXTERNAL_URL ให้เอง)
+  publicUrl: (env.PUBLIC_URL || env.RENDER_EXTERNAL_URL || '').replace(/\/$/, ''),
+  stickers: bool(env.STICKERS, true),
+
   announceNewBill: bool(env.ANNOUNCE_NEW_BILL, true),
   // แจ้งในกลุ่ม LINE เมื่อมีคนแนบสลิปผ่านเว็บแล้วตรวจผ่าน
   announceWebSlip: bool(env.ANNOUNCE_WEB_SLIP, true),

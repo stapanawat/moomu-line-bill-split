@@ -30,8 +30,25 @@
         "margin": "sm"
       }
     ],
-    "backgroundColor": "#06C755",
-    "paddingAll": "20px"
+    "backgroundColor": "#9A5B2B",
+    "paddingAll": "20px",
+    "paddingBottom": "18px"
+  },
+  "hero": {
+    "type": "box",
+    "layout": "vertical",
+    "backgroundColor": "#FFF6EC",
+    "paddingTop": "14px",
+    "paddingBottom": "6px",
+    "contents": [
+      {
+        "type": "image",
+        "url": "https://YOUR-APP.onrender.com/stickers/bill.png?v=1",
+        "size": "full",
+        "aspectRatio": "4:3",
+        "aspectMode": "fit"
+      }
+    ]
   },
   "body": {
     "type": "box",
@@ -46,7 +63,7 @@
             "text": "ยอดรวมบิล",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -54,7 +71,7 @@
             "text": "575.00 บาท",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "bold"
@@ -71,7 +88,7 @@
             "text": "ผู้รับเงิน",
             "wrap": true,
             "size": "sm",
-            "color": "#6B7684",
+            "color": "#8A7565",
             "flex": 4
           },
           {
@@ -79,7 +96,7 @@
             "text": "มายด์",
             "wrap": true,
             "size": "sm",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "align": "end",
             "flex": 6,
             "weight": "regular"
@@ -90,14 +107,14 @@
       {
         "type": "separator",
         "margin": "lg",
-        "color": "#E3E7EC"
+        "color": "#EFE2D3"
       },
       {
         "type": "text",
         "text": "ยอดที่ต้องชำระ",
         "wrap": true,
         "size": "sm",
-        "color": "#6B7684",
+        "color": "#8A7565",
         "margin": "lg"
       },
       {
@@ -109,7 +126,7 @@
             "text": "Fern",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 5,
             "gravity": "center"
           },
@@ -118,7 +135,7 @@
             "text": "122.50",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "weight": "bold",
             "align": "end",
             "flex": 3,
@@ -129,7 +146,7 @@
             "text": "รอชำระ",
             "wrap": true,
             "size": "xs",
-            "color": "#C0352B",
+            "color": "#C0503F",
             "align": "end",
             "flex": 3,
             "gravity": "center",
@@ -147,7 +164,7 @@
             "text": "ต้นกล้า",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 5,
             "gravity": "center"
           },
@@ -156,7 +173,7 @@
             "text": "162.50",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "weight": "bold",
             "align": "end",
             "flex": 3,
@@ -167,7 +184,7 @@
             "text": "รอชำระ",
             "wrap": true,
             "size": "xs",
-            "color": "#C0352B",
+            "color": "#C0503F",
             "align": "end",
             "flex": 3,
             "gravity": "center",
@@ -185,7 +202,7 @@
             "text": "Bank",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "flex": 5,
             "gravity": "center"
           },
@@ -194,7 +211,7 @@
             "text": "142.50",
             "wrap": true,
             "size": "md",
-            "color": "#1B2430",
+            "color": "#3B2A20",
             "weight": "bold",
             "align": "end",
             "flex": 3,
@@ -205,7 +222,7 @@
             "text": "รอชำระ",
             "wrap": true,
             "size": "xs",
-            "color": "#C0352B",
+            "color": "#C0503F",
             "align": "end",
             "flex": 3,
             "gravity": "center",
@@ -217,14 +234,14 @@
       {
         "type": "separator",
         "margin": "lg",
-        "color": "#E3E7EC"
+        "color": "#EFE2D3"
       },
       {
         "type": "text",
         "text": "เมื่อโอนแล้ว กรุณาส่งรูปสลิปในกลุ่มนี้ ระบบจะตรวจสอบให้อัตโนมัติ",
         "wrap": true,
         "size": "xs",
-        "color": "#6B7684",
+        "color": "#8A7565",
         "margin": "lg"
       }
     ],
@@ -237,7 +254,7 @@
       {
         "type": "button",
         "style": "primary",
-        "color": "#06C755",
+        "color": "#9A5B2B",
         "height": "sm",
         "action": {
           "type": "uri",
@@ -248,5 +265,13 @@
     ],
     "paddingAll": "16px",
     "paddingTop": "0px"
+  },
+  "styles": {
+    "header": {
+      "separator": false
+    },
+    "footer": {
+      "separator": false
+    }
   }
 }

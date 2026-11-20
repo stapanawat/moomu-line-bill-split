@@ -39,7 +39,7 @@ export default function SlipUploader({ billId, memberId, memberName, amount, onD
   if (done) {
     return (
       <div className="slip-box">
-        <Alert kind="success" title="ตรวจสอบสลิปผ่าน บันทึกการชำระเรียบร้อยแล้ว"
+        <Alert kind="success" sticker="paid" title="ตรวจสอบสลิปผ่าน บันทึกการชำระเรียบร้อยแล้ว"
           action={<Button variant="secondary" size="sm" onClick={onDone}>ปิด</Button>}>
           ยอด {baht(done.amount)} บาท เลขอ้างอิง {done.transRef}
           {done.announced ? ' ระบบได้แจ้งในกลุ่ม LINE แล้ว' : ''}
