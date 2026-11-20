@@ -147,6 +147,7 @@ export default function App() {
         <div className="page-head">
           <span className="kicker">{TITLES[tab].kicker}</span>
           <h1 className="page-title">{TITLES[tab].title}</h1>
+          <img className="page-cat" src="/stickers/face.png?v=1" alt="" width={62} height={62} aria-hidden="true" />
         </div>
         {isMock && (
           <Alert kind="info" title="โหมดข้อมูลตัวอย่าง">ข้อมูลในหน้านี้เป็นข้อมูลจำลองสำหรับทดสอบหน้าตา ไม่ได้เชื่อมต่อกับ LINE หรือฐานข้อมูล</Alert>

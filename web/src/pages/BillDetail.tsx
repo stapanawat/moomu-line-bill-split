@@ -198,7 +198,7 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
                 <span className="share-who">
                   <span className="share-name">{member(s.memberId)?.name ?? 'ไม่ทราบชื่อ'}{s.memberId === meId && <span className="muted"> (ท่าน)</span>}</span>
                   <span className={`share-state state-${state}`}>
-                    {state === 'payer' ? 'ผู้รับเงิน' : state === 'paid' ? <><Icon name="check" size={14} />ชำระแล้ว</> : 'รอชำระ'}
+                    {state === 'payer' ? 'ผู้รับเงิน' : state === 'paid' ? <><Icon name="paw" size={14} />ชำระแล้ว</> : 'รอชำระ'}
                   </span>
                 </span>
                 <Money value={s.amount} className="share-amt" tone={state === 'due' ? 'due' : undefined} />

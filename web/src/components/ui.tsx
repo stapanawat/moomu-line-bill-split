@@ -26,6 +26,7 @@ const paths: Record<string, ReactNode> = {
   users: <><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6" /></>,
   scan: <><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><path d="M4 12h16" /></>,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  paw: <g fill="currentColor" stroke="none"><ellipse cx="12" cy="16" rx="4.6" ry="3.8" /><circle cx="6" cy="10.5" r="2.1" /><circle cx="9.6" cy="6.6" r="2.2" /><circle cx="14.4" cy="6.6" r="2.2" /><circle cx="18" cy="10.5" r="2.1" /></g>,
 };
 export function Icon({ name, size = 18 }: { name: keyof typeof paths | string; size?: number }) {
   return (
@@ -179,7 +180,7 @@ export function Empty({ icon = 'list', title, children }: { icon?: string; title
 
 // ---------------- Avatar ----------------
 // สีประจำตัวสมาชิก: ใช้ซ้ำทุกจุด (รูปโปรไฟล์ เจ้าของรายการ แถบยอด) ให้จำคนได้จากสี
-const COLORS = ['#3f51c8', '#0d8080', '#8346c4', '#bf3f73', '#a8700f', '#2a77b8', '#5f7f16', '#94522f'];
+const COLORS = ['#d0735a', '#2f8f87', '#8a6cc9', '#cc5f8c', '#b98222', '#4a86c4', '#6b9234', '#9a6748'];
 export const memberColor = (id: string) => COLORS[[...id].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
 export function Avatar({ member, size = 32, ring }: { member?: Member; size?: number; ring?: boolean }) {
   const style: CSSProperties = { width: size, height: size };
