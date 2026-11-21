@@ -15,7 +15,7 @@ export class ApiError extends Error {
 
 export interface Api {
   session(): Promise<Session>;
-  listBills(f: { q?: string; from?: string; to?: string }): Promise<BillSummary[]>;
+  listBills(f: { q?: string; from?: string; to?: string; scope?: 'active' | 'history' }): Promise<BillSummary[]>;
   getBill(id: string): Promise<BillDetail>;
   createBill(input: NewBillInput): Promise<{ id: string; announced: boolean }>;
   /** รูป: ไม่ส่งคีย์ = คงเดิม, null = นำออก, data URL = เปลี่ยนใหม่ */

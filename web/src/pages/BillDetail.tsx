@@ -11,8 +11,9 @@ import SlipUploader from '../components/SlipUploader';
 type View = 'qr' | 'receipt' | `slip:${string}`;
 
 export default function BillDetailModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const { api, session, member, liveTick } = useApp();
+  const { api, session, member, liveTick, notify } = useApp();
   const first = useRef(true);
+  const prevStatus = useRef<string | null>(null);
   const [bill, setBill] = useState<BillDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -24,6 +25,15 @@ export default function BillDetailModal({ id, onClose }: { id: string; onClose: 
     setError(null);
     api.getBill(id).then((b) => {
       if (!alive) return;
+      // บิลถูกปิดระหว่างที่เปิดดูอยู่ (ยกเลิก หรือทุกคนชำระครบ): ปิดหน้าต่างแล้วแจ้งเตือน
+      const was = prevStatus.current;
+      prevStatus.current = b.status;
+      if (was === 'open' && b.status !== 'open') {
+        onClose();
+        if (b.status === 'cancelled') notify(`บิล "${b.title}" ถูกยกเลิกแล้ว`, 'ย้ายไปไว้ที่หน้าประวัติ ไม่ต้องชำระรายการนี้แล้ว', { kind: 'info' });
+        else notify(`บิล "${b.title}" ชำระครบทุกคนแล้ว`, 'ปิดบิลและย้ายไปไว้ที่หน้าประวัติเรียบร้อย', { sticker: 'paid' });
+        return;
+      }
       setBill(b);
       if (!first.current) {
         // อัปเดตจากเหตุการณ์: ถ้าคนที่กำลังดู QR จ่ายแล้ว ให้เลื่อนไปคนถัดไป
@@ -37,6 +47,7 @@ export default function BillDetailModal({ id, onClose }: { id: string; onClose: 
       setView(mine ? 'qr' : b.receiptUrl ? 'receipt' : 'qr');
     }).catch((e) => alive && setError(errorText(e)));
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, id, session.me.id, reload, liveTick]);
 
   return (
@@ -45,14 +56,14 @@ export default function BillDetailModal({ id, onClose }: { id: string; onClose: 
         <Alert kind="error" title="ไม่สามารถโหลดรายละเอียดบิลได้" action={<Button variant="secondary" size="sm" icon="refresh" onClick={() => setReload((r) => r + 1)}>ลองใหม่</Button>}>{error}</Alert>
       )}
       {!bill && !error && <SkeletonRows rows={5} label="กำลังโหลดรายละเอียดบิล" />}
-      {bill && <Body bill={bill} view={view} setView={setView} target={target} setTarget={setTarget} meId={session.me.id} member={member} reload={() => setReload((r) => r + 1)} />}
+      {bill && <Body bill={bill} view={view} setView={setView} target={target} setTarget={setTarget} meId={session.me.id} member={member} reload={() => setReload((r) => r + 1)} onClose={onClose} />}
     </Modal>
   );
 }
 
-function Body({ bill, view, setView, target, setTarget, meId, member, reload }: {
+function Body({ bill, view, setView, target, setTarget, meId, member, reload, onClose }: {
   bill: BillDetail; view: View; setView: (v: View) => void; target: string; setTarget: (s: string) => void;
-  meId: string; member: ReturnType<typeof useApp>['member']; reload: () => void;
+  meId: string; member: ReturnType<typeof useApp>['member']; reload: () => void; onClose: () => void;
 }) {
   const { session, api, startEdit, notify } = useApp();
   const [uploadFor, setUploadFor] = useState<string | null>(null);
@@ -67,7 +78,8 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload }: 
     setCancelling(true); setCancelError(null);
     try {
       const r = await api.cancelBill(bill.id, reason.trim());
-      notify(`ยกเลิกบิล "${bill.title}" แล้ว`, r.announced ? 'ระบบได้แจ้งการยกเลิกในกลุ่ม LINE แล้ว' : 'ยกเลิกสำเร็จ แต่ไม่สามารถแจ้งในกลุ่ม LINE ได้ในขณะนี้');
+      onClose();
+      notify(`ยกเลิกบิล "${bill.title}" แล้ว`, `${r.announced ? 'ระบบได้แจ้งการยกเลิกในกลุ่ม LINE แล้ว' : 'ยกเลิกสำเร็จ แต่ไม่สามารถแจ้งในกลุ่ม LINE ได้ในขณะนี้'} บิลนี้ย้ายไปอยู่ที่หน้าประวัติ`, { kind: 'info' });
     } catch (e) {
       setCancelError(errorText(e));
     } finally { setCancelling(false); }

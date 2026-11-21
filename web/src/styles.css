@@ -144,7 +144,7 @@ img, svg, video, canvas { max-width: 100%; }
   .me-name { display: none; }
   .tabs {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 0;
     background: var(--surface); border-top: 1px solid var(--rule);
     padding: 6px max(8px, env(safe-area-inset-left)) calc(6px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-right));
   }
@@ -756,3 +756,10 @@ input::placeholder { color: var(--faint); }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   .scan-beam { display: none; }
 }
+
+/* ตัวกรองสถานะ ค้างจ่าย / จ่ายแล้ว / ยกเลิก */
+.status-filter { margin: 2px 0 4px; }
+.status-filter .segmented { width: 100%; }
+.status-filter .segmented button { flex: 1; min-width: 0; font-size: 14px; }
+.meta-tag.meta-due { color: var(--due, #b5473a); background: #fdece8; border-color: #f2cbc2; }
+.meta-tag.meta-paid { color: var(--paid, #3e7f55); background: #eef7f0; border-color: #c7e4cf; }

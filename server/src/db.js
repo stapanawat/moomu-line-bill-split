@@ -101,8 +101,10 @@ export async function updateMemberPayment(memberId, { promptpay_id, bank_account
 // ---------------- bills ----------------
 const BILL_SELECT = 'select=*,bill_items(*,bill_item_shares(member_id)),bill_shares(*)';
 
-export function listBills(groupId, { from, to, limit = 500 } = {}) {
-  let path = `bills?group_id=eq.${groupId}&status=neq.cancelled&${BILL_SELECT}&order=bill_date.desc,created_at.desc&limit=${limit}`;
+/** scope: undefined = ทุกบิลที่ไม่ถูกยกเลิก, 'active' = ยังเก็บเงินไม่ครบ, 'history' = ชำระครบแล้วหรือยกเลิก */
+export function listBills(groupId, { from, to, limit = 500, scope } = {}) {
+  const status = scope === 'active' ? 'status=eq.open' : scope === 'history' ? 'status=in.(settled,cancelled)' : 'status=neq.cancelled';
+  let path = `bills?group_id=eq.${groupId}&${status}&${BILL_SELECT}&order=bill_date.desc,created_at.desc&limit=${limit}`;
   if (from) path += `&bill_date=gte.${q(from)}`;
   if (to) path += `&bill_date=lte.${q(to)}`;
   return rest(path);

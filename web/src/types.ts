@@ -27,6 +27,8 @@ export interface BillSummary {
   hasReceipt: boolean;
   itemNames: string[];
   memberIds: string[];
+  /** สถานะของผู้ใช้ในบิลนี้ */
+  myStatus?: 'payee' | 'due' | 'paid' | 'none';
 }
 
 export interface BillShare {

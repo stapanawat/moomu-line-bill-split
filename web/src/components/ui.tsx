@@ -20,6 +20,7 @@ const paths: Record<string, ReactNode> = {
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 17-5-5-9 8" /></>,
   chevron: <path d="m9 6 6 6-6 6" />,
   edit: <><path d="M4 20h4l10-10-4-4L4 16v4Z" /><path d="m13 7 4 4" /></>,
+  history: <><path d="M3 12a9 9 0 1 0 3-6.7" /><path d="M3 4v4h4" /><path d="M12 7v5l3 2" /></>,
   calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M3 10h18M8 3v4M16 3v4" /></>,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   filter: <path d="M4 6h16M7 12h10M10 18h4" />,

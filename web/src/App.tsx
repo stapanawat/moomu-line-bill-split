@@ -12,15 +12,17 @@ import SummaryPage from './pages/SummaryPage';
 import PaymentSettings from './pages/PaymentSettings';
 import MyDuesPage from './pages/MyDuesPage';
 
-type Tab = 'bills' | 'new' | 'summary' | 'account' | 'dues' | 'edit';
+type Tab = 'bills' | 'history' | 'new' | 'summary' | 'account' | 'dues' | 'edit';
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'bills', label: 'รายการบิล', icon: 'list' },
+  { id: 'history', label: 'ประวัติ', icon: 'history' },
   { id: 'new', label: 'สร้างบิล', icon: 'plus' },
   { id: 'summary', label: 'สรุปยอด', icon: 'chart' },
   { id: 'account', label: 'บัญชีรับเงิน', icon: 'wallet' },
 ];
 const TITLES: Record<Tab, { title: string; kicker: string }> = {
   bills: { title: 'บิลของกลุ่ม', kicker: 'สมุดบัญชี' },
+  history: { title: 'ประวัติบิล', kicker: 'ชำระครบและยกเลิก' },
   new: { title: 'สร้างบิลใหม่', kicker: 'บันทึกรายการ' },
   edit: { title: 'แก้ไขบิล', kicker: 'บันทึกรายการ' },
   summary: { title: 'สรุปยอด', kicker: 'ภาพรวม' },
@@ -40,7 +42,7 @@ export default function App() {
     const t = new URLSearchParams(location.search).get('tab');
     return t === 'dues' || TABS.some((x) => x.id === t) ? (t as Tab) : 'bills';
   });
-  const [flash, setFlash] = useState<{ title: string; text?: string; sticker?: StickerName } | null>(null);
+  const [flash, setFlash] = useState<{ title: string; text?: string; sticker?: StickerName; kind?: 'success' | 'info' | 'warning' } | null>(null);
   const [editing, setEditing] = useState<BillDetail | null>(null);
   const [liveTick, setLiveTick] = useState(0);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>('connecting');
@@ -93,7 +95,7 @@ export default function App() {
       inClient: platform?.inClient ?? false,
       closeWindow: () => platform?.closeWindow(),
       startEdit: (bill) => { setEditing(bill); setTab('edit'); window.scrollTo({ top: 0 }); },
-      notify: (title, text) => { setFlash({ title, text }); setTab('bills'); window.scrollTo({ top: 0 }); },
+      notify: (title, text, opts) => { setFlash({ title, text, ...opts }); setTab((t) => (t === 'history' || t === 'dues' ? t : 'bills')); window.scrollTo({ top: 0 }); },
     };
   }, [api, session, setMembers, setMe, liveTick, platform]);
 
@@ -152,10 +154,11 @@ export default function App() {
         {isMock && (
           <Alert kind="info" title="โหมดข้อมูลตัวอย่าง">ข้อมูลในหน้านี้เป็นข้อมูลจำลองสำหรับทดสอบหน้าตา ไม่ได้เชื่อมต่อกับ LINE หรือฐานข้อมูล</Alert>
         )}
-        {flash && tab === 'bills' && (
-          <Alert kind="success" title={flash.title} sticker={flash.sticker} onClose={() => setFlash(null)}>{flash.text}</Alert>
+        {flash && (tab === 'bills' || tab === 'history' || tab === 'dues') && (
+          <Alert kind={flash.kind ?? 'success'} title={flash.title} sticker={flash.sticker} onClose={() => setFlash(null)}>{flash.text}</Alert>
         )}
-        {tab === 'bills' && <BillsPage />}
+        {tab === 'bills' && <BillsPage scope="active" onShowHistory={() => go('history')} />}
+        {tab === 'history' && <BillsPage key="history" scope="history" />}
         {tab === 'new' && (
           <NewBillPage onCreated={(announced) => {
             setFlash({

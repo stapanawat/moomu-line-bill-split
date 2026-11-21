@@ -2,7 +2,7 @@
 // เพิ่ม ?mockError=session หรือ ?mockError=bills ใน URL เพื่อดูหน้าตาการแจ้งข้อผิดพลาด
 import { computeShares, normalizePromptPay, round2 } from '../../../shared/billing.js';
 import { ApiError, type Api } from './api';
-import type { BillDetail, Member, MemberPreset, NewBillInput } from '../types';
+import type { BillDetail, BillSummary, Member, MemberPreset, NewBillInput } from '../types';
 import type { LiveEvent } from './live';
 
 const wait = (ms = 350) => new Promise((r) => setTimeout(r, ms));
@@ -39,7 +39,7 @@ const emit = (e: LiveEvent) => listeners.forEach((l) => l({ ...e, at: Date.now()
 
 /** ใช้ทดสอบในโหมดตัวอย่าง: window.mockPayment('m4') = จำลองว่า Bank ส่งสลิปผ่าน */
 (window as unknown as { mockPayment: (memberId: string) => void }).mockPayment = (memberId: string) => {
-  const b = bills.find((x) => x.shares.some((s) => s.memberId === memberId && !s.paidAt && !s.isPayer));
+  const b = bills.find((x) => x.status !== 'cancelled' && x.shares.some((s) => s.memberId === memberId && !s.paidAt && !s.isPayer));
   if (b) payMember(b, memberId);
 };
 
@@ -134,15 +134,18 @@ export const mockApi: Api = {
     if (mockError === 'session') throw new ApiError(403, { code: 'not_member', message: 'ไม่พบชื่อของท่านในกลุ่มนี้ กรุณาพิมพ์ข้อความใดก็ได้ในกลุ่ม LINE หนึ่งครั้ง แล้วเปิดเว็บใหม่' });
     return { group: { name: 'แก๊งคาเฟ่ฮอปปิ้ง (ตัวอย่าง)' }, me: byId(ME), members: [...members], remindTime: '18:00' };
   },
-  async listBills({ q, from, to }) {
+  async listBills({ q, from, to, scope }) {
     await wait();
     if (mockError === 'bills') throw new ApiError(0, { code: 'network', message: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่อีกครั้ง' });
     const t = (q || '').toLowerCase();
-    return active()
+    const pool = scope === 'active' ? bills.filter((b) => b.status === 'open')
+      : scope === 'history' ? bills.filter((b) => b.status !== 'open') : active();
+    const myStatus = (b: BillDetail) => (b.payerId === ME ? 'payee' : !b.shares.some((s) => s.memberId === ME) ? 'none' : b.shares.find((s) => s.memberId === ME)!.paidAt ? 'paid' : 'due') as BillSummary['myStatus'];
+    return pool
       .filter((b) => (!from || b.date >= from) && (!to || b.date <= to))
       .filter((b) => !t || [b.title, ...b.itemNames, ...b.memberIds.map((id) => byId(id).name)].join(' ').toLowerCase().includes(t))
       .sort((a, b) => b.date.localeCompare(a.date))
-      .map(summaryOf);
+      .map((b) => ({ ...summaryOf(b), myStatus: myStatus(b) }));
   },
   async getBill(id) {
     await wait(250);

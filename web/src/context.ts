@@ -17,7 +17,7 @@ export interface AppCtx {
   /** เปิดหน้าแก้ไขบิล */
   startEdit: (bill: BillDetail) => void;
   /** แสดงข้อความสำเร็จบนหน้ารายการบิล */
-  notify: (title: string, text?: string) => void;
+  notify: (title: string, text?: string, opts?: { sticker?: import('./components/ui').StickerName; kind?: 'success' | 'info' | 'warning' }) => void;
 }
 
 export const Ctx = createContext<AppCtx | null>(null);

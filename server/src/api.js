@@ -93,14 +93,23 @@ async function session(req, url) {
   return { group: { name: group.name || 'กลุ่ม LINE' }, me: memberOut(me), members: members.map(memberOut), remindTime: config.remind.time };
 }
 
+/** สถานะของผู้ใช้ในบิล: payee = ผู้รับเงิน, due = ยังไม่จ่าย, paid = จ่ายแล้ว, none = ไม่ได้ร่วมบิล */
+function myStatusOf(b, meId) {
+  if (b.payer_member_id === meId) return 'payee';
+  const s = (b.bill_shares || []).find((x) => x.member_id === meId);
+  return !s ? 'none' : s.paid_at ? 'paid' : 'due';
+}
+
 async function listBills(req, url) {
-  const { group } = await auth(req, url);
+  const { group, me } = await auth(req, url);
   const from = url.searchParams.get('from') || undefined;
   const to = url.searchParams.get('to') || undefined;
+  const scopeParam = url.searchParams.get('scope');
+  const scope = scopeParam === 'active' || scopeParam === 'history' ? scopeParam : undefined;
   const text = (url.searchParams.get('q') || '').trim().toLowerCase();
-  const [bills, members] = await Promise.all([db.listBills(group.id, { from, to }), db.listMembers(group.id)]);
+  const [bills, members] = await Promise.all([db.listBills(group.id, { from, to, scope }), db.listMembers(group.id)]);
   const names = new Map(members.map((m) => [m.id, m.display_name]));
-  let list = bills.map(billSummary);
+  let list = bills.map((b) => ({ ...billSummary(b), myStatus: myStatusOf(b, me.id) }));
   if (text) {
     list = list.filter((b) =>
       [b.title, ...b.itemNames, ...b.memberIds.map((id) => names.get(id) || '')].join(' ').toLowerCase().includes(text));

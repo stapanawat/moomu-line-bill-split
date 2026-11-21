@@ -3,7 +3,22 @@ import { useEffect, useState } from 'react';
 import { useApp, errorText } from '../context';
 import type { BillSummary } from '../types';
 import { thDate } from '../lib/format';
-import { Alert, Badge, Button, Empty, Field, Icon, Meter, Money, PaidTrack, Person, SkeletonRows } from '../components/ui';
+import { Alert, Badge, Button, Empty, Field, Icon, Meter, Money, PaidTrack, Person, Segmented, SkeletonRows } from '../components/ui';
+
+type Scope = 'active' | 'history';
+type Filter = 'all' | 'due' | 'paid' | 'cancelled';
+const FILTERS: Record<Scope, { value: Filter; label: string }[]> = {
+  active: [{ value: 'all', label: 'ทั้งหมด' }, { value: 'due', label: 'ค้างจ่าย' }, { value: 'paid', label: 'จ่ายแล้ว' }],
+  history: [{ value: 'all', label: 'ทั้งหมด' }, { value: 'paid', label: 'จ่ายครบ' }, { value: 'cancelled', label: 'ยกเลิก' }],
+};
+/** รายการหลัก: ค้างจ่าย = ท่านยังไม่จ่าย, จ่ายแล้ว = ท่านจ่ายแล้ว/เป็นผู้รับเงิน รอคนอื่น
+ *  ประวัติ: จ่ายครบ = ทุกคนชำระครบ, ยกเลิก = บิลที่ยกเลิก */
+function matchFilter(b: BillSummary, scope: Scope, f: Filter) {
+  if (f === 'all') return true;
+  if (scope === 'history') return f === 'cancelled' ? b.status === 'cancelled' : b.status !== 'cancelled';
+  if (f === 'due') return b.myStatus === 'due';
+  return b.myStatus === 'paid' || b.myStatus === 'payee';
+}
 import BillDetailModal from './BillDetail';
 
 function groupByMonth(list: BillSummary[]) {
@@ -28,7 +43,7 @@ export function StatusBadge({ b }: { b: Pick<BillSummary, 'status' | 'paidCount'
   return <Badge kind="danger">รอชำระ</Badge>;
 }
 
-export default function BillsPage() {
+export default function BillsPage({ scope = 'active', onShowHistory }: { scope?: Scope; onShowHistory?: () => void }) {
   const { api, session, member, liveTick } = useApp();
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -38,6 +53,7 @@ export default function BillsPage() {
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [showDates, setShowDates] = useState(false);
+  const [filter, setFilter] = useState<Filter>('all');
   // เปิดบิลทันทีเมื่อมาจากปุ่มในการ์ดของบอท (?bill=<id>)
   const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(location.search).get('bill'));
 
@@ -46,14 +62,16 @@ export default function BillsPage() {
   useEffect(() => {
     let alive = true;
     setError(null);
-    api.listBills({ q: debounced, from, to })
+    api.listBills({ q: debounced, from, to, scope })
       .then((b) => alive && setBills(b))
       .catch((e) => alive && setError(errorText(e)));
     return () => { alive = false; };
-  }, [api, debounced, from, to, reload, liveTick]);
+  }, [api, debounced, from, to, reload, liveTick, scope]);
 
   const dateError = from && to && from > to ? 'วันที่เริ่มต้นต้องไม่อยู่หลังวันที่สิ้นสุด' : undefined;
-  const list = bills ?? [];
+  const all = bills ?? [];
+  const list = all.filter((b) => matchFilter(b, scope, filter));
+  const countOf = (f: Filter) => all.filter((b) => matchFilter(b, scope, f)).length;
   const total = list.reduce((s, b) => s + b.total, 0);
   const due = list.reduce((s, b) => s + b.dueAmount, 0);
   const filtered = Boolean(q || from || to);
@@ -80,6 +98,12 @@ export default function BillsPage() {
           </Field>
         </div>
       )}
+      {bills && all.length > 0 && (
+        <div className="status-filter">
+          <Segmented<Filter> value={filter} onChange={setFilter}
+            options={FILTERS[scope].map((o) => ({ value: o.value, label: `${o.label} (${countOf(o.value)})` }))} />
+        </div>
+      )}
       {filtered && (
         <div className="filter-note">
           <span>{bills ? `พบ ${list.length} บิล` : 'กำลังค้นหา'}</span>
@@ -97,7 +121,7 @@ export default function BillsPage() {
 
       {bills && (
         <>
-          {list.length > 0 && (
+          {scope === 'active' && list.length > 0 && (
             <section className="ledger-hero" aria-label="ภาพรวมยอด">
               <div className="ledger-hero-main">
                 <span className="kicker">{due > 0.004 ? 'ยังค้างชำระในกลุ่ม' : 'ทุกบิลชำระครบแล้ว'}</span>
@@ -113,8 +137,14 @@ export default function BillsPage() {
           )}
 
           {list.length === 0 ? (
-            <Empty icon="receipt" title={filtered ? 'ไม่พบรายการที่ตรงกับเงื่อนไข' : 'ยังไม่มีบิลในกลุ่มนี้'}>
-              {filtered ? 'ลองเปลี่ยนคำค้นหาหรือช่วงวันที่' : 'เริ่มต้นได้ที่เมนู "สร้างบิล"'}
+            <Empty icon={scope === 'history' ? 'history' : 'receipt'} title={
+              filtered ? 'ไม่พบรายการที่ตรงกับเงื่อนไข'
+                : filter !== 'all' ? (filter === 'due' ? 'ไม่มีบิลที่ท่านค้างจ่าย' : filter === 'cancelled' ? 'ไม่มีบิลที่ยกเลิก' : 'ยังไม่มีบิลในหมวดนี้')
+                  : scope === 'history' ? 'ยังไม่มีบิลในประวัติ' : 'ไม่มีบิลที่รอเก็บเงิน'}>
+              {filtered ? 'ลองเปลี่ยนคำค้นหาหรือช่วงวันที่'
+                : scope === 'history' ? 'บิลที่ทุกคนชำระครบหรือถูกยกเลิกจะย้ายมาที่นี่'
+                  : 'บิลที่ทุกคนชำระครบจะย้ายไปหน้าประวัติ เริ่มบิลใหม่ได้ที่เมนู "สร้างบิล"'}
+              {!filtered && scope === 'active' && onShowHistory && <div className="mt"><Button variant="secondary" size="sm" icon="history" onClick={onShowHistory}>ดูประวัติบิล</Button></div>}
             </Empty>
           ) : (
             months.map((m) => (
@@ -139,7 +169,9 @@ export default function BillsPage() {
                             <span className="bill-meta">
                               <Person member={member(b.payerId)} size={18} suffix={<span className="muted"> รับเงิน</span>} />
                               {b.hasReceipt && <span className="meta-tag" title="มีรูปใบเสร็จ"><Icon name="receipt" size={14} /><span className="sr-only">มีใบเสร็จ</span></span>}
-                              {mine && <span className="meta-tag meta-mine">ท่านร่วมจ่าย</span>}
+                              {scope === 'active' && b.myStatus === 'due' && <span className="meta-tag meta-due">ท่านค้างจ่าย</span>}
+                              {scope === 'active' && b.myStatus === 'paid' && <span className="meta-tag meta-paid">ท่านจ่ายแล้ว</span>}
+                              {scope === 'history' && mine && <span className="meta-tag meta-mine">ท่านร่วมจ่าย</span>}
                             </span>
                           </span>
                           <span className="bill-right">
