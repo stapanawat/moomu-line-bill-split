@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { round2 } from '../../shared/billing.js';
 
 export class SlipError extends Error {
-  /** kind: not_slip | duplicate | not_found | provider */
+  /** kind: not_slip | duplicate | not_found | shop_account | provider */
   constructor(kind, message, raw) { super(message); this.kind = kind; this.raw = raw; }
 }
 
@@ -20,7 +20,8 @@ function classify(code = '', message = '') {
   const s = `${code} ${message}`.toLowerCase();
   if (/duplicate|1012/.test(s)) return 'duplicate';
   if (/qr|invalid_image|image_size|not.?slip|1005|1006|1007|1008/.test(s)) return 'not_slip';
-  if (/slip_not_found|not.?found|1010|1013|1014/.test(s)) return 'not_found';
+  if (/\b1014\b/.test(s)) return 'shop_account'; // บัญชีผู้รับไม่ตรงกับบัญชีที่ผูกไว้ใน SlipOK
+  if (/slip_not_found|not.?found|1010|1013/.test(s)) return 'not_found';
   return 'provider';
 }
 
@@ -59,7 +60,8 @@ async function verifySlipOK(buffer, contentType) {
   if (!slipokBranch || !slipokKey) throw new SlipError('provider', 'ยังไม่ได้ตั้งค่า SLIPOK_BRANCH_ID / SLIPOK_API_KEY');
   const fd = new FormData();
   fd.append('files', new Blob([buffer], { type: contentType }), 'slip.jpg');
-  fd.append('log', 'true'); // ให้ SlipOK ช่วยตรวจสลิปซ้ำ
+  // ไม่ส่ง log: SlipOK จะไม่บังคับให้ผู้รับเป็นบัญชีของร้าน (ระบบนี้มีผู้รับเงินหลายคน ตรวจผู้รับและสลิปซ้ำเองแล้ว)
+  if (config.slip.slipokLog) fd.append('log', 'true');
   const res = await fetch(`https://api.slipok.com/api/line/apikey/${encodeURIComponent(slipokBranch)}`, {
     method: 'POST',
     headers: { 'x-authorization': slipokKey },

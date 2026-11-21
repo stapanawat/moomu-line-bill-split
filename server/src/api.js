@@ -313,8 +313,11 @@ const RPC_ERRORS = {
   bill_not_editable: [409, 'bill_not_editable', 'บิลนี้ถูกยกเลิกแล้ว หรือไม่สามารถแก้ไขได้'],
   bill_has_payments: [409, 'bill_locked', 'มีสมาชิกชำระเงินแล้ว จึงแก้ไขยอดเงินหรือรายการไม่ได้ หากต้องการแก้ยอด กรุณายกเลิกบิลนี้แล้วสร้างใหม่'],
 };
+const isMissingFn = (e) => /PGRST202|Could not find the function|PGRST204|column .* does not exist|schema cache/i.test(e?.message || '');
 function rpcError(e) {
   for (const [k, v] of Object.entries(RPC_ERRORS)) if (e.message?.includes(k)) return new HttpError(...v);
+  if (isMissingFn(e)) return new HttpError(503, 'db_outdated', 'ฐานข้อมูลยังไม่ได้อัปเดตสำหรับการแก้ไขบิล ผู้ดูแลระบบกรุณารันไฟล์ supabase/migrations/003_bill_edit_cancel.sql ใน Supabase');
+  console.error('[api] rpc error', e.message);
   return e;
 }
 
@@ -391,7 +394,12 @@ async function cancelBill(req, url, id) {
   const reason = String(body.reason || '').trim().slice(0, 200);
   try {
     await db.cancelBillRpc({ bill_id: bill.id, cancelled_by: me.line_user_id ? me.id : '', reason });
-  } catch (e) { throw rpcError(e); }
+  } catch (e) {
+    // ฐานข้อมูลยังไม่ได้รัน migration 003 (ไม่มีฟังก์ชัน cancel_bill): ยกเลิกด้วยการเปลี่ยนสถานะโดยตรงแทน
+    if (!isMissingFn(e)) throw rpcError(e);
+    console.warn('[api] cancel_bill rpc missing, fallback to direct update. Please run supabase/migrations/003_bill_edit_cancel.sql');
+    await db.cancelBillDirect(bill.id, { cancelledBy: me.line_user_id ? me.id : null, reason });
+  }
 
   publish(group.id, 'bill_updated', { billIds: [bill.id], message: `${me.display_name} ยกเลิกบิล "${bill.title}"` });
 

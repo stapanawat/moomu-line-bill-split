@@ -26,6 +26,9 @@ export const config = {
     easyslipUrl: env.EASYSLIP_URL || 'https://api.easyslip.com/v2/verify/bank',
     slipokBranch: env.SLIPOK_BRANCH_ID || '',
     slipokKey: env.SLIPOK_API_KEY || '',
+    // log=true ทำให้ SlipOK ตรวจ "บัญชีรับเงินที่ผูกไว้กับร้าน" ด้วย ซึ่งใช้กับการหารบิล (ผู้รับเงินหลายคน) ไม่ได้
+    // ระบบตรวจสลิปซ้ำและบัญชีผู้รับเองอยู่แล้ว จึงปิดไว้เป็นค่าเริ่มต้น
+    slipokLog: bool(env.SLIPOK_LOG, false),
     overpayTolerance: Number(env.AMOUNT_OVERPAY_TOLERANCE ?? 1),
   },
 

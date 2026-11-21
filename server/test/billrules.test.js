@@ -48,3 +48,8 @@ test('ข้อความยกเลิกบิล: แท็กทั้ง
   const edited = newBillMessage({ id: 'b1', title: 'ร้าน', bill_date: '2026-11-20', total: 300 }, 'คน1', [{ member: m(2), amount: 100 }], 'https://x?g=1', { edited: true });
   assert.match(JSON.stringify(edited), /แก้ไขบิล/);
 });
+
+test('SlipOK 1014 (บัญชีผู้รับไม่ตรงกับบัญชีร้าน) แยกจากสลิปไม่พบ', async () => {
+  const { config } = await import('../src/config.js');
+  assert.equal(config.slip.slipokLog, false);
+});

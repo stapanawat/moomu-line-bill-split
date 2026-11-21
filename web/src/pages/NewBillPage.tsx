@@ -48,8 +48,9 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
   const [payerId, setPayerId] = useState(edit?.payerId ?? (meIsMember ? me.id : session.members[0]?.id ?? ''));
   const [promptpay, setPromptpay] = useState(edit ? edit.promptpayId ?? '' : me.promptpayId || '');
   const [payMethod, setPayMethod] = useState<PayMethod>(edit ? (edit.promptpayId ? 'promptpay' : edit.qrUrl ? 'qr' : 'promptpay') : 'promptpay');
-  const [servicePct, setServicePct] = useState(String(edit?.servicePct ?? 0));
-  const [discount, setDiscount] = useState(String(edit?.discount ?? 0));
+  // ไม่มีช่องค่าบริการ/ส่วนลดแล้ว: บิลใหม่เป็น 0 เสมอ บิลเก่าที่เคยมีค่าไว้ยังคงค่าเดิมเพื่อให้ยอดไม่เปลี่ยน
+  const servicePct = String(edit?.servicePct ?? 0);
+  const discount = String(edit?.discount ?? 0);
   const [people, setPeopleRaw] = useState<string[]>(() => {
     if (!edit) return payerId ? [payerId] : [];
     return [...new Set([edit.payerId, ...edit.items.flatMap((i) => i.memberIds)])];
@@ -99,25 +100,25 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
       const text = await ocrReceipt(image, (stage, pct) => setScan({ kind: 'busy', stage, pct }));
       const r = parseReceipt(text, { today: todayIso() });
       const filled: string[] = [];
+      // ค่าบริการ / VAT / ส่วนลดในใบเสร็จ: รวมเป็นรายการ "ค่าบริการ / ภาษี" หารทุกคน ให้ยอดตรงกับใบเสร็จ
+      const extra = r.total != null && r.items.length ? Math.round((r.total - r.itemsTotal) * 100) / 100 : 0;
+      const extraItem = extra > 0.5 ? [{ name: r.vatAdded || r.vatPct ? 'ค่าบริการ / ภาษี' : 'ค่าบริการ', price: extra }] : [];
       if (r.items.length) {
-        const fresh = r.items.map((i) => ({ key: keySeq++, name: i.name, price: String(i.price), memberIds: null }));
+        const fresh = [...r.items, ...extraItem].map((i) => ({ key: keySeq++, name: i.name, price: String(i.price), memberIds: null }));
         setItems((list) => [...list.filter((it) => it.name.trim() || it.price.trim()), ...fresh]);
         filled.push(`${r.items.length} รายการ`);
       }
       if (r.date) { setDate(r.date); filled.push('วันที่'); }
       if (r.title && !title.trim()) { setTitle(r.title); filled.push('ชื่อร้าน'); }
-      const svc = r.servicePct ?? (Number(servicePct) || 0);
-      const disc = r.discount ?? (Number(discount) || 0);
-      if (r.servicePct != null) { setServicePct(String(r.servicePct)); filled.push(r.vatAdded ? 'ค่าบริการและ VAT' : 'ค่าบริการ'); }
-      if (r.discount != null) { setDiscount(String(r.discount)); filled.push('ส่วนลด'); }
+      if (extraItem.length) filled.push(extraItem[0].name);
       if (!r.items.length) {
         setScan({ kind: 'done', level: 'warning', title: 'อ่านรายการจากใบเสร็จไม่ได้', text: 'กรอกรายการเองได้ในขั้นตอนถัดไป หรือถ่ายรูปใหม่ให้ตรงและเห็นตัวอักษรชัด' + (filled.length ? ` (เติมให้แล้ว: ${filled.join(' ')})` : '') });
         return;
       }
-      const est = computeShares(r.items.map((i) => ({ price: i.price, memberIds: ['x'] })), svc, disc).total;
+      const est = Math.round(([...r.items, ...extraItem].reduce((s, i) => s + i.price, 0)) * 100) / 100;
       const mismatch = r.total != null && Math.abs(est - r.total) > 1;
       setScan(mismatch
-        ? { kind: 'done', level: 'warning', title: `อ่านจากใบเสร็จแล้ว: ${filled.join(' ')}`, text: `ยอดที่คำนวณได้ ${baht(est)} ไม่ตรงกับยอดในใบเสร็จ ${baht(r.total!)} บาท กรุณาตรวจรายการในขั้นตอนถัดไป` }
+        ? { kind: 'done', level: 'warning', title: `อ่านจากใบเสร็จแล้ว: ${filled.join(' ')}`, text: `รวมรายการได้ ${baht(est)} แต่ยอดในใบเสร็จ ${baht(r.total!)} บาท${r.discount ? ' (ใบเสร็จมีส่วนลด กรุณาหักออกจากราคารายการที่ได้ส่วนลด)' : ''} กรุณาตรวจรายการในขั้นตอนถัดไป` }
         : { kind: 'done', level: 'success', title: `อ่านจากใบเสร็จแล้ว: ${filled.join(' ')}`, text: 'กรุณาตรวจชื่อรายการและราคาอีกครั้งในขั้นตอนถัดไป' });
     } catch {
       setScan({ kind: 'done', level: 'warning', title: 'อ่านรายการจากรูปไม่สำเร็จ', text: 'ยังใช้รูปนี้เป็นใบเสร็จได้ตามปกติ และกรอกรายการเองในขั้นตอนถัดไป' });
@@ -154,9 +155,6 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
       if (!date) f.date = 'กรุณาระบุวันที่';
     }
     if (s === 2 && !locked) {
-      const s2 = Number(servicePct);
-      if (Number.isNaN(s2) || s2 < 0 || s2 > 100) f.servicePct = 'ค่าบริการต้องอยู่ระหว่าง 0–100%';
-      if (Number(discount) < 0) f.discount = 'ส่วนลดต้องไม่ติดลบ';
       if (!filledItems().length) f.items = 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ';
       items.forEach((it, idx) => {
         if (!it.name.trim() && !it.price) return;
@@ -164,7 +162,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
         if (!(Number(it.price) > 0)) f[`items.${idx}.price`] = `รายการที่ ${idx + 1}: ราคาต้องมากกว่า 0`;
         if (!shareIds(it).length) f[`items.${idx}.members`] = `รายการที่ ${idx + 1}: กรุณาเลือกผู้ร่วมจ่ายอย่างน้อย 1 คน`;
       });
-      if (filledItems().length && calc.total <= 0 && !f.discount) f.discount = 'ยอดรวมหลังหักส่วนลดต้องมากกว่า 0';
+      if (filledItems().length && calc.total <= 0) f.items = 'ยอดรวมต้องมากกว่า 0';
     }
     if (s === 3 && !locked) {
       if (payMethod === 'promptpay') {
@@ -396,14 +394,6 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
               })}
             </ol>
             <Button variant="secondary" icon="plus" className="add-item" onClick={() => setItems((l) => [...l, newItem()])}>เพิ่มรายการ</Button>
-            <div className="grid-2 mt">
-              <Field label="ค่าบริการ / ภาษี (%)" error={errors.servicePct}>
-                <input type="number" inputMode="decimal" min="0" max="100" value={servicePct} onChange={(e) => setServicePct(e.target.value)} />
-              </Field>
-              <Field label="ส่วนลด (บาท)" error={errors.discount}>
-                <input type="number" inputMode="decimal" min="0" value={discount} onChange={(e) => setDiscount(e.target.value)} />
-              </Field>
-            </div>
           </fieldset>
           <section className="card">
             <ShareTable calc={calc} payerId={payerId} />
@@ -503,7 +493,7 @@ function ShareTable({ calc, payerId }: { calc: ReturnType<typeof computeShares>;
         </ul>
       )}
       <dl className="ledger-foot">
-        <div><dt>ราคารวมก่อนปรับ</dt><dd><Money value={calc.subtotal} /></dd></div>
+        {Math.abs(calc.subtotal - calc.total) > 0.004 && <div><dt>ราคารวมก่อนปรับ</dt><dd><Money value={calc.subtotal} /></dd></div>}
         <div className="ledger-total"><dt>ยอดรวมบิล</dt><dd><Money value={calc.total} /></dd></div>
       </dl>
     </>

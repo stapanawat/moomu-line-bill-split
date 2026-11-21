@@ -116,6 +116,17 @@ export const recordPaymentRpc = (payload) => rest('rpc/record_payment', { method
 export const updateBillRpc = (payload) => rest('rpc/update_bill', { method: 'POST', body: { p: payload } });
 export const cancelBillRpc = (payload) => rest('rpc/cancel_bill', { method: 'POST', body: { p: payload } });
 
+/** ยกเลิกบิลโดยตรง (ใช้เมื่อยังไม่มีฟังก์ชัน cancel_bill) ถ้ายังไม่มีคอลัมน์ cancelled_* จะเปลี่ยนแค่สถานะ */
+export async function cancelBillDirect(billId, { cancelledBy, reason }) {
+  const path = `bills?id=eq.${q(billId)}&status=neq.cancelled`;
+  try {
+    await rest(path, { method: 'PATCH', body: { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: cancelledBy, cancel_reason: reason || null }, prefer: 'return=minimal' });
+  } catch (e) {
+    if (!/PGRST204|column/i.test(e.message || '')) throw e;
+    await rest(path, { method: 'PATCH', body: { status: 'cancelled' }, prefer: 'return=minimal' });
+  }
+}
+
 /** ยอดค้างทั้งหมดของกลุ่ม: [{bill_id, member_id, amount, bills:{...}}] */
 export const listUnpaidShares = (groupId) =>
   rest(`bill_shares?paid_at=is.null&select=*,bills!inner(id,group_id,title,bill_date,payer_member_id,promptpay_id,status,created_at)&bills.group_id=eq.${groupId}&bills.status=eq.open`);
