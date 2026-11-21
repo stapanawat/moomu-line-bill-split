@@ -5,6 +5,7 @@ import * as line from './line.js';
 import * as msg from './messages.js';
 import { config, liffUrl } from './config.js';
 import { HttpError, readJson, parseDataUrl } from './http.js';
+import { putTempFile } from './tempfiles.js';
 import { computeShares, normalizePromptPay, round2 } from '../../shared/billing.js';
 import { ensureMember } from './services.js';
 import { publish, subscribe } from './events.js';
@@ -480,9 +481,22 @@ export async function openEvents(req, res, url) {
 }
 
 /** คืน true ถ้าจัดการ request แล้ว */
+// ---------------- ไฟล์ดาวน์โหลดชั่วคราว (รูป QR) ----------------
+async function createDownload(req, url) {
+  await auth(req, url);
+  const body = await readJson(req, 3 * 1024 * 1024);
+  const img = parseDataUrl(body.image, 2 * 1024 * 1024);
+  if (!img) throw new HttpError(400, 'bad_image', 'ไฟล์รูปไม่ถูกต้อง');
+  const base = String(body.name || 'qr').replace(/[\\/:*?"<>|\r\n]+/g, '').slice(0, 80) || 'qr';
+  const name = /\.(png|jpe?g)$/i.test(base) ? base : `${base}.${img.ext}`;
+  const token = putTempFile(img.buffer, img.contentType, name);
+  return { url: `/dl/${token}/${encodeURIComponent(name)}`, name };
+}
+
 export async function routeApi(req, url) {
   const p = url.pathname;
   const m = req.method;
+  if (m === 'POST' && p === '/api/downloads') return createDownload(req, url);
   if (m === 'GET' && p === '/api/my-groups') return myGroups(req);
   if (m === 'GET' && p === '/api/session') return session(req, url);
   if (m === 'GET' && p === '/api/bills') return listBills(req, url);

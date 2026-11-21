@@ -259,20 +259,12 @@ async function composeQrImage(src: string, lines: { amount: string; payee: strin
   return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('blob'))), 'image/png'));
 }
 
-/** บันทึกรูป: มือถือใช้เมนูแชร์ (เลือก "บันทึกรูปภาพ" ได้) ถ้าไม่รองรับใช้ดาวน์โหลดไฟล์ */
-async function saveImage(blob: Blob, name: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
-  const file = new File([blob], name, { type: blob.type || 'image/png' });
-  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (nav.canShare?.({ files: [file] }) && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-    try { await nav.share({ files: [file], title: name }); return 'shared'; }
-    catch (e) { if ((e as Error)?.name === 'AbortError') return 'cancelled'; }
-  }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-  return 'downloaded';
-}
+const blobToDataUrl = (b: Blob) => new Promise<string>((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(String(r.result));
+  r.onerror = () => reject(new Error('read'));
+  r.readAsDataURL(b);
+});
 
 function QrPanel({ bill, target, setTarget, meId, member }: {
   bill: BillDetail; target: string; setTarget: (s: string) => void; meId: string; member: ReturnType<typeof useApp>['member'];
@@ -282,7 +274,8 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
   const [img, setImg] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveNote, setSaveNote] = useState<{ kind: 'success' | 'warning'; text: string; preview?: string } | null>(null);
+  const [saveNote, setSaveNote] = useState<{ kind: 'success' | 'warning'; text: string } | null>(null);
+  const { api, inClient, os, openExternal } = useApp();
   const payload = useMemo(() => {
     if (!share || !bill.promptpayId) return null;
     try { return promptPayPayload(bill.promptpayId, share.amount); } catch { return null; }
@@ -301,22 +294,65 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
   }
   const payer = member(bill.payerId);
   const qrSrc = bill.promptpayId ? img : bill.qrUrl;
+  /**
+   * บันทึกรูป QR
+   * 1) มือถือที่มีเมนูแชร์ไฟล์ (Safari/Chrome/LINE บน iPhone): เปิดเมนูแชร์ ให้เลือก "บันทึกรูปภาพ" เข้าคลังรูป
+   * 2) ในแอป LINE ที่ไม่มีเมนูแชร์ (LINE บน Android เป็น WebView: ไม่มี Web Share และดาวน์โหลดจาก blob: ไม่ได้)
+   *    ฝากไฟล์ไว้ที่เซิร์ฟเวอร์ แล้วเปิดลิงก์ https ในเบราว์เซอร์ของเครื่องให้ดาวน์โหลด
+   * 3) เบราว์เซอร์ทั่วไป: ดาวน์โหลดไฟล์ตามปกติ
+   */
   const downloadQr = async () => {
     if (!qrSrc || !share) return;
     setSaving(true); setSaveNote(null);
     const name = `QR-${(member(target)?.name || 'payment').replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '')}-${share.amount.toFixed(2)}.png`;
+    let step = 'สร้างรูป';
     try {
-      const blob = await composeQrImage(qrSrc, { amount: baht(share.amount), payee: payer?.name || '-', payer: member(target)?.name || '-', title: bill.title });
-      const r = await saveImage(blob, name);
-      if (r === 'downloaded') {
-        // แอป LINE บางเครื่องไม่รองรับการดาวน์โหลด: แสดงรูปให้กดค้างบันทึกแทน
-        const mobile = /Android|iPhone|iPad|iPod|Line\//i.test(navigator.userAgent);
-        setSaveNote(mobile
-          ? { kind: 'success', text: 'ถ้าเครื่องไม่บันทึกไฟล์ให้ กดค้างที่รูปด้านล่างแล้วเลือก "บันทึกรูปภาพ"', preview: URL.createObjectURL(blob) }
-          : { kind: 'success', text: `ดาวน์โหลดไฟล์ ${name} แล้ว` });
+      let blob: Blob;
+      try {
+        blob = await composeQrImage(qrSrc, { amount: baht(share.amount), payee: payer?.name || '-', payer: member(target)?.name || '-', title: bill.title });
+      } catch {
+        // รูป QR ที่แนบไว้วาดลงแคนวาสไม่ได้ (ข้ามโดเมน): ใช้ไฟล์ต้นฉบับแทน
+        step = 'โหลดรูป QR';
+        blob = await (await fetch(qrSrc)).blob();
       }
-    } catch {
-      setSaveNote({ kind: 'warning', text: 'บันทึกรูปไม่สำเร็จ กรุณากดค้างที่รูป QR แล้วเลือก "บันทึกรูปภาพ" หรือแคปหน้าจอแทน' });
+      const file = new File([blob], name, { type: blob.type || 'image/png' });
+      const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+
+      if (os !== 'web' && typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+        step = 'เปิดเมนูแชร์';
+        try {
+          await nav.share({ files: [file] });
+          setSaveNote({ kind: 'success', text: 'ถ้ายังไม่ได้เลือก ให้เลือก "บันทึกรูปภาพ" ในเมนูแชร์ รูปจะอยู่ในคลังรูปภาพ' });
+          return;
+        } catch (e) {
+          if ((e as Error)?.name === 'AbortError') return; // ผู้ใช้ปิดเมนูแชร์เอง
+          // แชร์ไม่ได้: ไปใช้วิธีดาวน์โหลดต่อ
+        }
+      }
+
+      if (inClient) {
+        step = 'เตรียมลิงก์ดาวน์โหลด';
+        const r = await api.createDownload(await blobToDataUrl(blob), name);
+        step = 'เปิดเบราว์เซอร์';
+        openExternal(new URL(r.url, location.origin).href);
+        setSaveNote({
+          kind: 'success',
+          text: os === 'ios'
+            ? 'เปิด Safari เพื่อดาวน์โหลดแล้ว กด "ดาวน์โหลด" ไฟล์จะอยู่ในแอปไฟล์ (Files) โฟลเดอร์ดาวน์โหลด'
+            : 'เปิดเบราว์เซอร์ของเครื่องเพื่อดาวน์โหลดแล้ว รูปจะอยู่ในโฟลเดอร์ Download ดูได้ในแอปแกลเลอรีหรือรูปภาพ',
+        });
+        return;
+      }
+
+      step = 'ดาวน์โหลด';
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      setSaveNote({ kind: 'success', text: `ดาวน์โหลดไฟล์ ${name} แล้ว` });
+    } catch (e) {
+      console.error('[qr] save failed at', step, e);
+      setSaveNote({ kind: 'warning', text: `บันทึกรูปไม่สำเร็จ (ขั้นตอน: ${step}) ${errorText(e)}` });
     } finally { setSaving(false); }
   };
   const canChoose = meId === bill.payerId || !unpaid.some((s) => s.memberId === meId);
@@ -353,8 +389,7 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
           </div>
           {saveNote && (
             <div className="qr-save-note">
-              <Alert kind={saveNote.kind} title={saveNote.kind === 'success' ? 'บันทึกรูป QR แล้ว' : 'บันทึกรูปไม่สำเร็จ'} onClose={() => setSaveNote(null)}>{saveNote.text}</Alert>
-              {saveNote.preview && <img className="qr-save-preview" src={saveNote.preview} alt="รูป QR สำหรับบันทึก" />}
+              <Alert kind={saveNote.kind} title={saveNote.kind === 'success' ? 'กำลังบันทึกรูป QR' : 'บันทึกรูปไม่สำเร็จ'} onClose={() => setSaveNote(null)}>{saveNote.text}</Alert>
             </div>
           )}
           <p className="qr-note">

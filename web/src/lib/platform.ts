@@ -12,8 +12,15 @@ export interface Platform {
   api: Api | null;
   getToken: () => string | null;
   inClient: boolean;
+  /** ระบบปฏิบัติการตามที่ LIFF รายงาน */
+  os: 'ios' | 'android' | 'web';
   closeWindow(): void;
+  /** เปิดลิงก์ในเบราว์เซอร์ของเครื่อง (ออกจากเบราว์เซอร์ในแอป LINE) */
+  openExternal(url: string): void;
 }
+
+const guessOs = (): Platform['os'] => (/iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'ios' : /Android/i.test(navigator.userAgent) ? 'android' : 'web');
+const openNewTab = (url: string) => { window.open(url, '_blank', 'noopener'); };
 
 function groupKeyFromUrl(): string | null {
   const params = new URLSearchParams(location.search);
@@ -30,14 +37,17 @@ function groupKeyFromUrl(): string | null {
 export async function initPlatform(): Promise<Platform> {
   if (isMock) {
     const { mockApi } = await import('./mock');
-    return { api: mockApi, getToken: () => null, inClient: false, closeWindow: () => {} };
+    // ?mockClient=line จำลองการเปิดในแอป LINE (ใช้ทดสอบ): ลิงก์ที่เปิดภายนอกจะเก็บไว้ที่ window.__openedExternal
+    const asLine = new URLSearchParams(location.search).get('mockClient') === 'line';
+    const recordOpen = (url: string) => { (window as unknown as { __openedExternal?: string[] }).__openedExternal = [...((window as unknown as { __openedExternal?: string[] }).__openedExternal || []), url]; };
+    return { api: mockApi, getToken: () => null, inClient: asLine, os: guessOs(), closeWindow: () => {}, openExternal: asLine ? recordOpen : openNewTab };
   }
 
   const cfg = window.APP_CONFIG || {};
   if (cfg.devAuth) {
     // โหมดทดสอบในเครื่อง (เซิร์ฟเวอร์ตั้ง DEV_AUTH_USER_ID)
     const key = groupKeyFromUrl();
-    return { api: key ? createHttpApi(key, () => null) : null, getToken: () => null, inClient: false, closeWindow: () => {} };
+    return { api: key ? createHttpApi(key, () => null) : null, getToken: () => null, inClient: false, os: guessOs(), closeWindow: () => {}, openExternal: openNewTab };
   }
 
   if (!cfg.liffId) throw new ApiError(500, { code: 'config', message: 'ระบบยังไม่ได้ตั้งค่า LIFF ID กรุณาติดต่อผู้ดูแลระบบ' });
@@ -57,6 +67,8 @@ export async function initPlatform(): Promise<Platform> {
     api: key ? createHttpApi(key, getToken) : null,
     getToken,
     inClient: liff.isInClient(),
+    os: (liff.getOS() as Platform['os'] | undefined) ?? guessOs(),
     closeWindow: () => liff.closeWindow(),
+    openExternal: (url: string) => (liff.isInClient() ? liff.openWindow({ url, external: true }) : openNewTab(url)),
   };
 }

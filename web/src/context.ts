@@ -14,6 +14,10 @@ export interface AppCtx {
   inClient: boolean;
   /** ปิดหน้าเว็บกลับไปที่แชท LINE */
   closeWindow: () => void;
+  /** ระบบปฏิบัติการของเครื่อง */
+  os: 'ios' | 'android' | 'web';
+  /** เปิดลิงก์ในเบราว์เซอร์ของเครื่อง */
+  openExternal: (url: string) => void;
   /** เปิดหน้าแก้ไขบิล */
   startEdit: (bill: BillDetail) => void;
   /** แสดงข้อความสำเร็จบนหน้ารายการบิล */

@@ -9,6 +9,7 @@ import { handleEvents } from './bot.js';
 import { routeApi, openEvents } from './api.js';
 import { runReminders, startInternalScheduler } from './reminder.js';
 import { readBody, sendJson, sendError, HttpError } from './http.js';
+import { getTempFile, contentDisposition } from './tempfiles.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webDist = path.resolve(here, '..', config.webDist);
@@ -61,6 +62,24 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/healthz') return sendJson(res, 200, { ok: true });
+
+    // ---- ไฟล์ดาวน์โหลดชั่วคราว: /dl/<token>/<ชื่อไฟล์> ----
+    const dl = /^\/dl\/([\w-]{16,40})(?:\/|$)/.exec(url.pathname);
+    if (dl && (req.method === 'GET' || req.method === 'HEAD')) {
+      const f = getTempFile(dl[1]);
+      if (!f) {
+        res.writeHead(410, { 'Content-Type': 'text/plain; charset=utf-8' });
+        return res.end('ลิงก์ดาวน์โหลดหมดอายุแล้ว กรุณากดบันทึกรูป QR ใหม่อีกครั้ง');
+      }
+      res.writeHead(200, {
+        'Content-Type': f.contentType,
+        'Content-Length': f.buffer.length,
+        'Content-Disposition': contentDisposition(f.name, url.searchParams.get('view') === '1'),
+        'Cache-Control': 'private, no-store',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      return res.end(req.method === 'HEAD' ? undefined : f.buffer);
+    }
 
     // ---- ค่าตั้งค่าที่เว็บต้องใช้ ----
     if (url.pathname === '/app-config.js') {

@@ -94,6 +94,8 @@ export default function App() {
       api, session, member: (id) => map.get(id), setMembers, setMe, liveTick,
       inClient: platform?.inClient ?? false,
       closeWindow: () => platform?.closeWindow(),
+      os: platform?.os ?? 'web',
+      openExternal: (url: string) => (platform ? platform.openExternal(url) : window.open(url, '_blank')),
       startEdit: (bill) => { setEditing(bill); setTab('edit'); window.scrollTo({ top: 0 }); },
       notify: (title, text, opts) => { setFlash({ title, text, ...opts }); setTab((t) => (t === 'history' || t === 'dues' ? t : 'bills')); window.scrollTo({ top: 0 }); },
     };

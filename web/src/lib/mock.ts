@@ -224,6 +224,10 @@ export const mockApi: Api = {
     Object.assign(me, { promptpayId: normalizePromptPay(p.promptpayId), bankAccount: p.bankAccount || null, accountName: p.accountName || null });
     return { ...me };
   },
+  async createDownload(image, name) {
+    await wait(300);
+    return { url: image, name };
+  },
   async uploadSlip(billId, image, memberId) {
     await wait(1200);
     const b = bills.find((x) => x.id === billId);
