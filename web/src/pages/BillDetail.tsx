@@ -230,6 +230,50 @@ function Body({ bill, view, setView, target, setTarget, meId, member, reload, on
   );
 }
 
+/** รูปที่ใช้บันทึก: QR + ยอดเงิน + ชื่อผู้รับ/ผู้ชำระ บนพื้นขาว (แอปธนาคารสแกนจากรูปนี้ได้) */
+async function composeQrImage(src: string, lines: { amount: string; payee: string; payer: string; title: string }): Promise<Blob> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error('load'));
+    i.src = src;
+  });
+  const W = 900, pad = 60, qr = W - pad * 2;
+  const qrH = Math.round(qr * (img.height / img.width));
+  const H = 150 + qrH + 300;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d')!;
+  const font = (w: number, s: number) => `${w} ${s}px 'IBM Plex Sans Thai', 'Noto Sans Thai', sans-serif`;
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#103b6e'; g.fillRect(0, 0, W, 110);
+  g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.font = font(700, 46); g.fillText('PromptPay', W / 2, 56);
+  g.drawImage(img, pad, 130, qr, qrH);
+  let y = 130 + qrH + 70;
+  g.fillStyle = '#2b1d14'; g.font = font(700, 64); g.fillText(`${lines.amount} บาท`, W / 2, y);
+  y += 70; g.font = font(500, 32); g.fillStyle = '#4a3a2e'; g.fillText(`ผู้รับเงิน ${lines.payee}`, W / 2, y);
+  y += 46; g.fillText(`ผู้ชำระ ${lines.payer}`, W / 2, y);
+  y += 46; g.font = font(400, 26); g.fillStyle = '#8a7565'; g.fillText(lines.title.slice(0, 40), W / 2, y);
+  return new Promise((resolve, reject) => c.toBlob((b) => (b ? resolve(b) : reject(new Error('blob'))), 'image/png'));
+}
+
+/** บันทึกรูป: มือถือใช้เมนูแชร์ (เลือก "บันทึกรูปภาพ" ได้) ถ้าไม่รองรับใช้ดาวน์โหลดไฟล์ */
+async function saveImage(blob: Blob, name: string): Promise<'shared' | 'downloaded' | 'cancelled'> {
+  const file = new File([blob], name, { type: blob.type || 'image/png' });
+  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+  if (nav.canShare?.({ files: [file] }) && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    try { await nav.share({ files: [file], title: name }); return 'shared'; }
+    catch (e) { if ((e as Error)?.name === 'AbortError') return 'cancelled'; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return 'downloaded';
+}
+
 function QrPanel({ bill, target, setTarget, meId, member }: {
   bill: BillDetail; target: string; setTarget: (s: string) => void; meId: string; member: ReturnType<typeof useApp>['member'];
 }) {
@@ -237,13 +281,15 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
   const share = bill.shares.find((s) => s.memberId === target);
   const [img, setImg] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveNote, setSaveNote] = useState<{ kind: 'success' | 'warning'; text: string; preview?: string } | null>(null);
   const payload = useMemo(() => {
     if (!share || !bill.promptpayId) return null;
     try { return promptPayPayload(bill.promptpayId, share.amount); } catch { return null; }
   }, [share, bill.promptpayId]);
 
   useEffect(() => {
-    setImg(null); setQrError(null);
+    setImg(null); setQrError(null); setSaveNote(null);
     if (!payload) return;
     QRCode.toDataURL(payload, { width: 720, margin: 2, errorCorrectionLevel: 'M' })
       .then(setImg)
@@ -254,6 +300,25 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
     return <div className="viewer-panel"><Alert kind="success" title="สมาชิกทุกคนชำระครบแล้ว">รายการนี้ไม่มียอดค้างชำระ</Alert></div>;
   }
   const payer = member(bill.payerId);
+  const qrSrc = bill.promptpayId ? img : bill.qrUrl;
+  const downloadQr = async () => {
+    if (!qrSrc || !share) return;
+    setSaving(true); setSaveNote(null);
+    const name = `QR-${(member(target)?.name || 'payment').replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '')}-${share.amount.toFixed(2)}.png`;
+    try {
+      const blob = await composeQrImage(qrSrc, { amount: baht(share.amount), payee: payer?.name || '-', payer: member(target)?.name || '-', title: bill.title });
+      const r = await saveImage(blob, name);
+      if (r === 'downloaded') {
+        // แอป LINE บางเครื่องไม่รองรับการดาวน์โหลด: แสดงรูปให้กดค้างบันทึกแทน
+        const mobile = /Android|iPhone|iPad|iPod|Line\//i.test(navigator.userAgent);
+        setSaveNote(mobile
+          ? { kind: 'success', text: 'ถ้าเครื่องไม่บันทึกไฟล์ให้ กดค้างที่รูปด้านล่างแล้วเลือก "บันทึกรูปภาพ"', preview: URL.createObjectURL(blob) }
+          : { kind: 'success', text: `ดาวน์โหลดไฟล์ ${name} แล้ว` });
+      }
+    } catch {
+      setSaveNote({ kind: 'warning', text: 'บันทึกรูปไม่สำเร็จ กรุณากดค้างที่รูป QR แล้วเลือก "บันทึกรูปภาพ" หรือแคปหน้าจอแทน' });
+    } finally { setSaving(false); }
+  };
   const canChoose = meId === bill.payerId || !unpaid.some((s) => s.memberId === meId);
 
   return (
@@ -283,9 +348,18 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
             <div>ผู้รับเงิน <b>{payer?.name}</b>{bill.promptpayId && <> ({maskPromptPay(bill.promptpayId)})</>}</div>
             <div>ผู้ชำระ <b>{member(target)?.name}</b></div>
           </div>
+          <div className="qr-actions">
+            <Button icon="download" onClick={downloadQr} loading={saving} disabled={!qrSrc || !share}>บันทึกรูป QR</Button>
+          </div>
+          {saveNote && (
+            <div className="qr-save-note">
+              <Alert kind={saveNote.kind} title={saveNote.kind === 'success' ? 'บันทึกรูป QR แล้ว' : 'บันทึกรูปไม่สำเร็จ'} onClose={() => setSaveNote(null)}>{saveNote.text}</Alert>
+              {saveNote.preview && <img className="qr-save-preview" src={saveNote.preview} alt="รูป QR สำหรับบันทึก" />}
+            </div>
+          )}
           <p className="qr-note">
             {bill.promptpayId
-              ? 'ยอดเงินถูกกำหนดไว้ใน QR แล้ว กดค้างที่รูปเพื่อบันทึก แล้วสแกนผ่านแอปธนาคาร'
+              ? 'ยอดเงินถูกกำหนดไว้ใน QR แล้ว กด "บันทึกรูป QR" แล้วเปิดสแกนจากรูปในแอปธนาคาร'
               : 'QR นี้ไม่มียอดเงินกำหนดไว้ กรุณากรอกยอดเงินตามที่แสดงด้านบนเมื่อโอน'}
           </p>
         </div>
