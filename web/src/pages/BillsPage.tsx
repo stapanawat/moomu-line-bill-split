@@ -43,6 +43,25 @@ export function StatusBadge({ b }: { b: Pick<BillSummary, 'status' | 'paidCount'
   return <Badge kind="danger">รอชำระ</Badge>;
 }
 
+/**
+ * ?bill=<id> จากลิงก์ในการ์ดของบอท: เปิดบิลนั้นแค่ครั้งแรก แล้วลบออกจาก URL ไม่ให้บิลเด้งซ้ำทุกครั้งที่สลับเมนู
+ * อ่านตอนหน้าแรก mount (หลัง LIFF แปลง liff.state เป็น query แล้ว) ไม่ใช่ตอนโหลดไฟล์
+ */
+let billParam: { id: string | null } | null = null;
+function takeBillParam(): string | null {
+  if (!billParam) {
+    const u = new URL(location.href);
+    billParam = { id: u.searchParams.get('bill') };
+    if (billParam.id) {
+      u.searchParams.delete('bill');
+      history.replaceState(history.state, '', u.pathname + u.search + u.hash);
+    }
+    // StrictMode เรียกตัวเริ่มต้นสองครั้งในรอบเดียวกัน: ล้างค่าหลังรอบนี้
+    queueMicrotask(() => { billParam = { id: null }; });
+  }
+  return billParam.id;
+}
+
 export default function BillsPage({ scope = 'active', onShowHistory }: { scope?: Scope; onShowHistory?: () => void }) {
   const { api, session, member, liveTick } = useApp();
   const [q, setQ] = useState('');
@@ -55,7 +74,7 @@ export default function BillsPage({ scope = 'active', onShowHistory }: { scope?:
   const [showDates, setShowDates] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
   // เปิดบิลทันทีเมื่อมาจากปุ่มในการ์ดของบอท (?bill=<id>)
-  const [openId, setOpenId] = useState<string | null>(() => new URLSearchParams(location.search).get('bill'));
+  const [openId, setOpenId] = useState<string | null>(() => (scope === 'active' ? takeBillParam() : null));
 
   useEffect(() => { const t = setTimeout(() => setDebounced(q.trim()), 300); return () => clearTimeout(t); }, [q]);
 
