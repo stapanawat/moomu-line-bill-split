@@ -5,7 +5,7 @@ import * as line from './line.js';
 import * as msg from './messages.js';
 import { config, liffUrl } from './config.js';
 import { HttpError, readJson, parseDataUrl } from './http.js';
-import { putTempFile } from './tempfiles.js';
+import { putTempFile, addClientLog } from './tempfiles.js';
 import { computeShares, normalizePromptPay, round2 } from '../../shared/billing.js';
 import { ensureMember } from './services.js';
 import { publish, subscribe } from './events.js';
@@ -497,6 +497,11 @@ export async function routeApi(req, url) {
   const p = url.pathname;
   const m = req.method;
   if (m === 'POST' && p === '/api/downloads') return createDownload(req, url);
+  if (m === 'POST' && p === '/api/client-log') {
+    const body = await readJson(req, 16 * 1024);
+    addClientLog({ event: String(body.event || 'qr_save').slice(0, 40), ua: String(req.headers['user-agent'] || '').slice(0, 200), info: JSON.parse(JSON.stringify(body.info || {}).slice(0, 4000)) });
+    return { ok: true };
+  }
   if (m === 'GET' && p === '/api/my-groups') return myGroups(req);
   if (m === 'GET' && p === '/api/session') return session(req, url);
   if (m === 'GET' && p === '/api/bills') return listBills(req, url);

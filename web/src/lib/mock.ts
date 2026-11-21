@@ -224,6 +224,7 @@ export const mockApi: Api = {
     Object.assign(me, { promptpayId: normalizePromptPay(p.promptpayId), bankAccount: p.bankAccount || null, accountName: p.accountName || null });
     return { ...me };
   },
+  async clientLog(event, info) { (window as unknown as { __clientLog?: unknown[] }).__clientLog = [...((window as unknown as { __clientLog?: unknown[] }).__clientLog || []), { event, info }]; },
   async createDownload(image, name) {
     await wait(300);
     return { url: image, name };

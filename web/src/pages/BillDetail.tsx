@@ -306,6 +306,9 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
     setSaving(true); setSaveNote(null);
     const name = `QR-${(member(target)?.name || 'payment').replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '')}-${share.amount.toFixed(2)}.png`;
     let step = 'สร้างรูป';
+    const trace: string[] = [];
+    const t = (s: string) => { trace.push(`${Math.round(performance.now())} ${s}`); };
+    t(`start os=${os} inClient=${inClient} share=${typeof navigator.share}`);
     try {
       let blob: Blob;
       try {
@@ -317,14 +320,19 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
       }
       const file = new File([blob], name, { type: blob.type || 'image/png' });
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
+      let canShareFiles: boolean | string = 'n/a';
+      try { canShareFiles = nav.canShare ? nav.canShare({ files: [file] }) : 'no canShare'; } catch (e) { canShareFiles = `throw ${(e as Error).name}`; }
+      t(`blob ${blob.type} ${blob.size}B canShareFiles=${canShareFiles}`);
 
       if (os !== 'web' && typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
         step = 'เปิดเมนูแชร์';
         try {
           await nav.share({ files: [file] });
+          t('share resolved');
           setSaveNote({ kind: 'success', text: 'ถ้ายังไม่ได้เลือก ให้เลือก "บันทึกรูปภาพ" ในเมนูแชร์ รูปจะอยู่ในคลังรูปภาพ' });
           return;
         } catch (e) {
+          t(`share error ${(e as Error)?.name}: ${(e as Error)?.message}`);
           if ((e as Error)?.name === 'AbortError') return; // ผู้ใช้ปิดเมนูแชร์เอง
           // แชร์ไม่ได้: ไปใช้วิธีดาวน์โหลดต่อ
         }
@@ -333,8 +341,10 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
       if (inClient) {
         step = 'เตรียมลิงก์ดาวน์โหลด';
         const r = await api.createDownload(await blobToDataUrl(blob), name);
+        t(`download link ${r.url.slice(0, 20)}`);
         step = 'เปิดเบราว์เซอร์';
         openExternal(new URL(r.url, location.origin).href);
+        t('openExternal called');
         setSaveNote({
           kind: 'success',
           text: os === 'ios'
@@ -351,9 +361,13 @@ function QrPanel({ bill, target, setTarget, meId, member }: {
       setTimeout(() => URL.revokeObjectURL(url), 10000);
       setSaveNote({ kind: 'success', text: `ดาวน์โหลดไฟล์ ${name} แล้ว` });
     } catch (e) {
+      t(`fail at ${step}: ${(e as Error)?.name} ${(e as Error)?.message}`);
       console.error('[qr] save failed at', step, e);
       setSaveNote({ kind: 'warning', text: `บันทึกรูปไม่สำเร็จ (ขั้นตอน: ${step}) ${errorText(e)}` });
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+      void api.clientLog('qr_save', { trace, ua: navigator.userAgent });
+    }
   };
   const canChoose = meId === bill.payerId || !unpaid.some((s) => s.memberId === meId);
 

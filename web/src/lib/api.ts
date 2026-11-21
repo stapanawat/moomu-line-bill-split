@@ -30,6 +30,8 @@ export interface Api {
   uploadSlip(billId: string, image: string, memberId?: string): Promise<{ ok: true; amount: number; transRef: string; announced: boolean }>;
   /** ฝากรูปไว้ที่เซิร์ฟเวอร์ชั่วคราว ได้ลิงก์ https สำหรับดาวน์โหลด (ใช้ในแอป LINE ที่ดาวน์โหลดจาก blob ไม่ได้) */
   createDownload(image: string, name: string): Promise<{ url: string; name: string }>;
+  /** ส่งผลการทำงานบนเครื่องผู้ใช้ไปเก็บที่เซิร์ฟเวอร์ (ใช้หาสาเหตุปัญหา) */
+  clientLog(event: string, info: Record<string, unknown>): Promise<void>;
   /** รับเหตุการณ์เรียลไทม์ คืนฟังก์ชันสำหรับยกเลิก */
   subscribe(onEvent: (e: LiveEvent) => void, onStatus: (s: LiveStatus) => void): () => void;
 }
@@ -79,6 +81,7 @@ export function createHttpApi(groupKey: string, getToken: () => string | null): 
     deletePreset: async (id) => { await call('DELETE', `/api/presets/${id}`); },
     uploadSlip: (billId, image, memberId) => call('POST', `/api/bills/${billId}/slip`, {}, { image, memberId }),
     createDownload: (image, name) => call('POST', '/api/downloads', {}, { image, name }),
+    clientLog: async (event, info) => { await call('POST', '/api/client-log', {}, { event, info }).catch(() => {}); },
     subscribe: (onEvent, onStatus) => connectLive(groupKey, getToken, onEvent, onStatus),
   };
 }

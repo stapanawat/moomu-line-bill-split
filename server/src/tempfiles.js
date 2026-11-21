@@ -25,6 +25,18 @@ export function getTempFile(token) {
   return f;
 }
 
+// บันทึกผลการกดบันทึกรูปจากเครื่องผู้ใช้ (ไว้หาสาเหตุเมื่อบันทึกไม่ได้) เก็บ 50 รายการล่าสุด ไม่มีข้อมูลส่วนตัว
+const clientLog = [];
+export function addClientLog(entry) {
+  clientLog.push({ at: new Date().toISOString(), ...entry });
+  while (clientLog.length > 50) clientLog.shift();
+}
+export const getClientLog = () => clientLog.slice().reverse();
+/** นับว่ามีการเปิดลิงก์ดาวน์โหลด (ใช้ดูว่าเบราว์เซอร์ภายนอกเปิดลิงก์จริงหรือไม่) */
+export function noteDownloadHit(token, ua) {
+  addClientLog({ event: 'dl_hit', token: token.slice(0, 6), ua: String(ua || '').slice(0, 200) });
+}
+
 /** ชื่อไฟล์สำหรับ Content-Disposition: ASCII สำรอง + UTF-8 */
 export function contentDisposition(name, inline = false) {
   const ascii = name.replace(/[^\x20-\x7e]/g, '').replace(/["\\]/g, '') || 'file';
