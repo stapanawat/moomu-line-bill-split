@@ -53,3 +53,15 @@ test('SlipOK 1014 (บัญชีผู้รับไม่ตรงกับ�
   const { config } = await import('../src/config.js');
   assert.equal(config.slip.slipokLog, false);
 });
+
+test('แก้บิลหลังมีคนจ่าย: เพิ่มคน/รายการได้ถ้ายอดคนที่จ่ายแล้วเท่าเดิม', async () => {
+  const { paidShareConflict } = await import('../src/billrules.js');
+  const bill = { payer_member_id: 'P', bill_shares: [
+    { member_id: 'P', amount: 50, paid_at: 'x' }, { member_id: 'A', amount: 50, paid_at: 'x' }, { member_id: 'B', amount: 50, paid_at: null }] };
+  const ok = { payerId: 'P', calc: { shares: { P: 50, A: 50, B: 80, C: 30 } } };
+  assert.equal(paidShareConflict(bill, ok), null);
+  const bad = { payerId: 'P', calc: { shares: { P: 40, A: 40, B: 40, C: 40 } } };
+  assert.match(paidShareConflict(bill, bad, () => 'Fern'), /Fern จ่ายแล้ว 50\.00 แต่ยอดใหม่เป็น 40\.00/);
+  assert.match(paidShareConflict(bill, { ...ok, payerId: 'B' }), /เปลี่ยนผู้รับเงินไม่ได้/);
+  assert.equal(paidShareConflict({ ...bill, bill_shares: bill.bill_shares.map((s) => ({ ...s, paid_at: s.member_id === 'P' ? 'x' : null })) }, bad), null);
+});

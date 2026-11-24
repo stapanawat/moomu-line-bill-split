@@ -38,7 +38,9 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
   const { api, session, member } = useApp();
   const me = session.me;
   const isEdit = Boolean(edit);
-  const locked = Boolean(edit?.hasPayments); // มีคนจ่ายแล้ว: แก้ได้แค่ชื่อ วันที่ ใบเสร็จ
+  // มีคนจ่ายแล้ว: เปลี่ยนผู้รับเงิน/ช่องทางรับเงินไม่ได้ แต่เพิ่มคนและรายการได้ โดยยอดของคนที่จ่ายแล้วต้องเท่าเดิม
+  const locked = Boolean(edit?.hasPayments);
+  const paidShares = new Map((edit?.shares ?? []).filter((s) => s.paidAt && !s.isPayer).map((s) => [s.memberId, s.amount]));
   const [step, setStep] = useState(isEdit ? 1 : 0);
   const [reached, setReached] = useState(isEdit ? 3 : 0);
   const [dir, setDir] = useState<'fwd' | 'back'>('fwd');
@@ -55,7 +57,11 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
     if (!edit) return payerId ? [payerId] : [];
     return [...new Set([edit.payerId, ...edit.items.flatMap((i) => i.memberIds)])];
   });
-  const setPeople = (ids: string[]) => setPeopleRaw(ids.includes(payerId) ? ids : [payerId, ...ids]);
+  // คนที่จ่ายแล้วนำออกจากบิลไม่ได้
+  const setPeople = (ids: string[]) => {
+    const keep = [payerId, ...paidShares.keys()].filter((id) => !ids.includes(id));
+    setPeopleRaw([...keep, ...ids]);
+  };
   const [items, setItems] = useState<ItemDraft[]>(() =>
     edit ? edit.items.map((i) => ({ key: keySeq++, name: i.name, price: String(i.price), memberIds: [...i.memberIds] })) : [newItem()]);
   const [receiptState, setReceiptState] = useState<ImageState>(edit?.receiptUrl ? { kind: 'keep' } : { kind: 'none' });
@@ -74,7 +80,8 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
   const [ocrSource, setOcrSource] = useState<string | null>(null);
   const topRef = useRef<HTMLDivElement>(null);
 
-  const shareIds = (it: ItemDraft) => (it.memberIds ?? people).filter((id) => people.includes(id));
+  // รายการใหม่ (memberIds = null) หารทุกคน ยกเว้นบิลที่มีคนจ่ายแล้ว จะหารเฉพาะคนที่ยังไม่จ่าย
+  const shareIds = (it: ItemDraft) => (it.memberIds ?? people.filter((id) => !paidShares.has(id))).filter((id) => people.includes(id));
   const calc = useMemo(
     () => computeShares(items.map((it) => ({ price: Number(it.price) || 0, memberIds: shareIds(it) })), Number(servicePct) || 0, Number(discount) || 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -91,7 +98,13 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
     const cur = shareIds(it);
     updateItem(it.key, { memberIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
   };
-  const scrollTop = () => topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // เลื่อนขึ้นบนสุดของฟอร์ม โดยไม่ให้แถบขั้นตอนไปอยู่ใต้แถบด้านบน
+  const scrollTop = () => {
+    const el = topRef.current;
+    if (!el) return;
+    const bar = document.querySelector('.topbar')?.getBoundingClientRect().height ?? 0;
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - bar - 8), behavior: 'smooth' });
+  };
 
   // ---------- ใบเสร็จ + อ่านรายการอัตโนมัติ ----------
   const runScan = async (image: string) => {
@@ -131,7 +144,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
       setReceipt(shown);
       setErrors(({ receiptImage: _o, ...rest }) => rest);
       setOcrSource(forOcr);
-      if (!locked) void runScan(forOcr);
+      void runScan(forOcr);
     } catch {
       setErrors((e) => ({ ...e, receiptImage: 'ไม่สามารถอ่านไฟล์รูปได้ กรุณาเลือกไฟล์รูปภาพ (JPG หรือ PNG)' }));
     }
@@ -146,7 +159,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
   const filledItems = () => items.filter((it) => it.name.trim() || it.price);
   function validateStep(s: number) {
     const f: Record<string, string> = {};
-    if (s === 0 && !locked) {
+    if (s === 0) {
       if (!payerId) f.payer = 'กรุณาเลือกผู้รับเงิน';
       if (people.length < 2) f.people = 'กรุณาเลือกผู้ร่วมบิลอย่างน้อย 2 คน (รวมผู้รับเงิน)';
     }
@@ -154,7 +167,13 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
       if (!title.trim()) f.title = 'กรุณาระบุชื่อรายการหรือชื่อร้าน';
       if (!date) f.date = 'กรุณาระบุวันที่';
     }
-    if (s === 2 && !locked) {
+    if (s === 2) {
+      for (const [id, old] of paidShares) {
+        const now = Number(calc.shares[id] ?? 0);
+        if (Math.abs(now - old) > 0.009) {
+          f[`paid.${id}`] = `${member(id)?.name ?? '-'} จ่ายแล้ว ${baht(old)} บาท แต่ยอดใหม่เป็น ${baht(now)} บาท ยอดของคนที่จ่ายแล้วต้องเท่าเดิม ให้รายการที่เพิ่มหารเฉพาะคนที่ยังไม่จ่าย`;
+        }
+      }
       if (!filledItems().length) f.items = 'กรุณาเพิ่มรายการอย่างน้อย 1 รายการ';
       items.forEach((it, idx) => {
         if (!it.name.trim() && !it.price) return;
@@ -243,7 +262,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
 
       {isEdit && step === 1 && (
         locked
-          ? <Alert kind="warning" title={`กำลังแก้ไขบิล "${edit!.title}"`}>มีสมาชิกชำระเงินแล้ว จึงแก้ไขได้เฉพาะชื่อรายการ วันที่ และรูปใบเสร็จ หากต้องการแก้ยอดเงินหรือรายการ กรุณายกเลิกบิลนี้แล้วสร้างใหม่</Alert>
+          ? <Alert kind="info" title={`กำลังแก้ไขบิล "${edit!.title}"`}>มีสมาชิกชำระเงินแล้ว ยังเพิ่มคน เพิ่มรายการ หรือเปลี่ยนใบเสร็จได้ (กด "ย้อนกลับ" หรือแตะขั้นตอนด้านบน) แต่ยอดของคนที่จ่ายแล้วต้องเท่าเดิม และเปลี่ยนผู้รับเงินไม่ได้</Alert>
           : <Alert kind="info" title={`กำลังแก้ไขบิล "${edit!.title}"`}>ถ้ายอดของสมาชิกเปลี่ยน ระบบจะแจ้งยอดใหม่ในกลุ่ม LINE ให้อัตโนมัติ</Alert>
       )}
       {(formError || errorList.length > 0) && (
@@ -264,9 +283,8 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
               </select>
             </Field>
           </section>
-          {locked
-            ? <section className="card"><p className="muted">มีสมาชิกชำระแล้ว จึงเปลี่ยนผู้ร่วมบิลไม่ได้</p><PeopleChips ids={people} payerId={payerId} /></section>
-            : <ParticipantPicker people={people} setPeople={setPeople} payerId={payerId} error={errors.people} />}
+          {locked && <Alert kind="info" title="เพิ่มคนได้ แต่นำคนที่จ่ายแล้วออกไม่ได้">จ่ายแล้ว: {[...paidShares.keys()].map((id) => member(id)?.name).join(', ')}</Alert>}
+          <ParticipantPicker people={people} setPeople={setPeople} payerId={payerId} error={errors.people} />
           <section className="dock">
             <div className="dock-summary">
               <span className="dock-faces">{people.slice(0, 6).map((id) => <Avatar key={id} member={member(id)} size={28} ring />)}{people.length > 6 && <span className="avatar-more">+{people.length - 6}</span>}</span>
@@ -287,7 +305,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
                 <div className="receipt-img"><img src={receipt} alt="รูปใบเสร็จ" />{scan.kind === 'busy' && <span className="scan-beam" aria-hidden="true" />}</div>
                 <figcaption className="row-gap">
                   <label className="btn btn-secondary btn-sm"><input type="file" accept="image/*" hidden onChange={(e) => { void pickReceipt(e.target.files?.[0]); e.target.value = ''; }} /><Icon name="image" size={16} /> เปลี่ยนรูป</label>
-                  {!locked && ocrSource && scan.kind !== 'busy' && <Button variant="secondary" size="sm" icon="scan" onClick={() => void runScan(ocrSource)}>อ่านอีกครั้ง</Button>}
+                  {ocrSource && scan.kind !== 'busy' && <Button variant="secondary" size="sm" icon="scan" onClick={() => void runScan(ocrSource)}>อ่านอีกครั้ง</Button>}
                   <Button variant="ghost" size="sm" icon="trash" onClick={() => { setReceipt(null); setOcrSource(null); setScan({ kind: 'idle' }); }}>นำรูปออก</Button>
                 </figcaption>
               </figure>
@@ -343,7 +361,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
       {/* ---------- 3. รายการและราคา ---------- */}
       {step === 2 && (
         <>
-          <fieldset className="card plain-fieldset" disabled={locked}>
+          <fieldset className="card plain-fieldset">
             <StepHead n={3} title="ตรวจรายการและราคา" sub="แก้ชื่อหรือราคาได้ และแตะชื่อเพื่อเลือกว่าแต่ละรายการหารกับใคร (ค่าเริ่มต้น หารทุกคน)" />
             {receipt && (
               <details className="receipt-ref">
@@ -351,7 +369,11 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
                 <img src={receipt} alt="รูปใบเสร็จต้นฉบับ" />
               </details>
             )}
-            {locked && <span className="lock-tag">ล็อกเนื่องจากมีผู้ชำระแล้ว</span>}
+            {locked && (
+              <Alert kind="info" title="มีคนจ่ายแล้ว">
+                เพิ่มรายการหรือคนได้ แต่ยอดของ {[...paidShares.keys()].map((id) => member(id)?.name).join(', ')} ต้องเท่าเดิม รายการที่เพิ่มใหม่จะหารเฉพาะคนที่ยังไม่จ่ายให้อัตโนมัติ
+              </Alert>
+            )}
             {errors.items && <p className="field-error">{errors.items}</p>}
             <ol className="items">
               {items.map((it, idx) => {

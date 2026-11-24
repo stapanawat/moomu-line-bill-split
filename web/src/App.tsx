@@ -51,6 +51,20 @@ export default function App() {
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // รับเหตุการณ์เรียลไทม์: มีคนชำระเงิน สร้างบิล หรือรายชื่อเปลี่ยน -> โหลดข้อมูลใหม่ทันที
+  // ความสูงของแถบด้านบน (sticky) ให้ส่วนอื่นเลื่อน/ติดหน้าจอใต้แถบนี้ ไม่ถูกบัง
+  useEffect(() => {
+    const set = () => {
+      const h = document.querySelector('.topbar')?.getBoundingClientRect().height ?? 0;
+      document.documentElement.style.setProperty('--topbar-h', `${Math.round(h)}px`);
+    };
+    set();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(set) : null;
+    const el = document.querySelector('.topbar');
+    if (ro && el) ro.observe(el);
+    window.addEventListener('resize', set);
+    return () => { ro?.disconnect(); window.removeEventListener('resize', set); };
+  });
+
   useEffect(() => {
     if (!api) return;
     return api.subscribe((e) => {

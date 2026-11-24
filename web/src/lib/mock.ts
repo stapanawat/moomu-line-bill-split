@@ -164,7 +164,12 @@ export const mockApi: Api = {
     const financial = key(b.items) !== key(input.items) || b.payerId !== input.payerId || (b.promptpayId ?? '') !== (normalizePromptPay(input.promptpayId) ?? '')
       || b.servicePct !== input.servicePct || b.discount !== input.discount;
     const hasPayments = b.shares.some((s) => s.paidAt && !s.isPayer);
-    if (financial && hasPayments) throw new ApiError(409, { code: 'bill_locked', message: 'มีสมาชิกชำระเงินแล้ว จึงแก้ไขยอดเงินหรือรายการไม่ได้ หากต้องการแก้ยอด กรุณายกเลิกบิลนี้แล้วสร้างใหม่' });
+    if (financial && hasPayments) {
+      if (input.payerId !== b.payerId) throw new ApiError(409, { code: 'bill_locked', message: 'มีสมาชิกชำระเงินแล้ว จึงเปลี่ยนผู้รับเงินไม่ได้' });
+      const next = computeShares(input.items, input.servicePct, input.discount).shares as Record<string, number>;
+      const changed = b.shares.filter((s) => s.paidAt && !s.isPayer && Math.abs((next[s.memberId] ?? 0) - s.amount) > 0.009);
+      if (changed.length) throw new ApiError(409, { code: 'bill_locked', message: `ยอดของคนที่ชำระแล้วต้องเท่าเดิม (${changed.map((s) => byId(s.memberId).name).join(', ')})` });
+    }
     if (financial) rebuild(b, input);
     else {
       Object.assign(b, { title: input.title, date: input.date, updatedAt: new Date().toISOString() });

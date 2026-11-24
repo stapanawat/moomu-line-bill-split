@@ -51,6 +51,22 @@ export function canManageBill(me, bill, adminUserIds = []) {
 export const billHasPayments = (bill) =>
   (bill.bill_shares || []).some((s) => s.paid_at && s.member_id !== bill.payer_member_id);
 
+/**
+ * แก้บิลหลังมีคนจ่ายแล้ว: เพิ่มคน/รายการได้ แต่ห้ามเปลี่ยนผู้รับเงิน และยอดของคนที่จ่ายแล้วต้องเท่าเดิม
+ * @returns {string|null} ข้อความเหตุผลที่แก้ไม่ได้ หรือ null ถ้าแก้ได้
+ */
+export function paidShareConflict(bill, data, nameOf = () => '-') {
+  const paid = (bill.bill_shares || []).filter((s) => s.paid_at && s.member_id !== bill.payer_member_id);
+  if (!paid.length) return null;
+  if (data.payerId !== bill.payer_member_id) return 'มีสมาชิกชำระเงินแล้ว จึงเปลี่ยนผู้รับเงินไม่ได้';
+  const changed = paid
+    .map((s) => ({ id: s.member_id, old: round2(Number(s.amount)), now: round2(Number(data.calc.shares[s.member_id] ?? 0)) }))
+    .filter((x) => Math.abs(x.old - x.now) > 0.009);
+  if (!changed.length) return null;
+  const list = changed.map((x) => `${nameOf(x.id)} จ่ายแล้ว ${x.old.toFixed(2)} แต่ยอดใหม่เป็น ${x.now.toFixed(2)}`).join(', ');
+  return `ยอดของคนที่ชำระแล้วต้องเท่าเดิม (${list}) กรุณาให้รายการที่เพิ่มหารเฉพาะคนที่ยังไม่จ่าย`;
+}
+
 /** เทียบว่าข้อมูลที่กระทบยอดเงินเปลี่ยนหรือไม่ (ผู้รับเงิน พร้อมเพย์ ค่าบริการ ส่วนลด รายการ ผู้ร่วมจ่าย) */
 export function financialChanged(bill, data) {
   const cur = {

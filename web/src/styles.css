@@ -770,3 +770,13 @@ input::placeholder { color: var(--faint); }
 @media (max-width: 520px) { .qr-actions .btn { width: 100%; } }
 .qr-save-note { display: grid; gap: 10px; margin: 8px 0; text-align: left; }
 .qr-save-preview { width: 100%; max-width: 320px; margin: 0 auto; border-radius: 12px; border: 1px solid var(--rule, #eadccd); -webkit-touch-callout: default; }
+
+/* แถบขั้นตอนสร้างบิล: ติดใต้แถบด้านบนเสมอ แตะย้อนไปขั้นก่อนหน้าได้ทุกเมื่อ (เดิมถูกแถบด้านบนบัง) */
+.wizard .stepper {
+  position: sticky; top: var(--topbar-h, 61px); z-index: 25;
+  background: var(--paper, #fdf6ee); padding: 10px 0 8px; margin: 0 calc(-1 * var(--s1, 4px));
+  box-shadow: 0 6px 10px -10px rgba(74, 50, 34, 0.35);
+}
+.wizard .stepper::before, .wizard .stepper::after { top: 24px; }
+.wizard { scroll-margin-top: calc(var(--topbar-h, 61px) + 8px); }
+.stepper button:not(:disabled) .step-dot { cursor: pointer; }

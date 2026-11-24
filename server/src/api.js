@@ -10,7 +10,7 @@ import { computeShares, normalizePromptPay, round2 } from '../../shared/billing.
 import { ensureMember } from './services.js';
 import { publish, subscribe } from './events.js';
 import { processSlip } from './slipflow.js';
-import { validateBill, canManageBill, billHasPayments, financialChanged } from './billrules.js';
+import { validateBill, canManageBill, billHasPayments, financialChanged, paidShareConflict } from './billrules.js';
 import { formatBaht } from '../../shared/billing.js';
 
 // ---------------- auth ----------------
@@ -321,7 +321,8 @@ async function removePreset(req, url, id) {
 // ---------------- แก้ไข / ยกเลิกบิล (ผู้สร้างบิลหรือผู้ดูแล) ----------------
 const RPC_ERRORS = {
   bill_not_editable: [409, 'bill_not_editable', 'บิลนี้ถูกยกเลิกแล้ว หรือไม่สามารถแก้ไขได้'],
-  bill_has_payments: [409, 'bill_locked', 'มีสมาชิกชำระเงินแล้ว จึงแก้ไขยอดเงินหรือรายการไม่ได้ หากต้องการแก้ยอด กรุณายกเลิกบิลนี้แล้วสร้างใหม่'],
+  bill_has_payments: [409, 'bill_locked', 'มีสมาชิกชำระเงินแล้ว จึงเปลี่ยนผู้รับเงินไม่ได้'],
+  bill_paid_share_changed: [409, 'bill_locked', 'ยอดของคนที่ชำระแล้วต้องเท่าเดิม กรุณาให้รายการที่เพิ่มหารเฉพาะคนที่ยังไม่จ่าย'],
 };
 const isMissingFn = (e) => /PGRST202|Could not find the function|PGRST204|column .* does not exist|schema cache/i.test(e?.message || '');
 function rpcError(e) {
@@ -352,7 +353,11 @@ async function editBill(req, url, id) {
   if (Object.keys(fields).length) throw new HttpError(400, 'validation', 'กรุณาตรวจสอบข้อมูลให้ครบถ้วน', fields);
 
   const financial = financialChanged(bill, data);
-  if (financial && billHasPayments(bill)) throw new HttpError(...RPC_ERRORS.bill_has_payments);
+  const nameOf = (id) => members.find((m) => m.id === id)?.display_name || '-';
+  if (financial) {
+    const conflict = paidShareConflict(bill, data, nameOf);
+    if (conflict) throw new HttpError(409, 'bill_locked', conflict);
+  }
 
   // รูป: undefined = คงเดิม, null = นำออก, data URL = เปลี่ยนใหม่
   const base = `bills/${group.id}/${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -380,7 +385,13 @@ async function editBill(req, url, id) {
       items: items.map((i) => ({ name: i.name, price: i.price, member_ids: i.memberIds })),
       shares: Object.entries(calc.shares).map(([member_id, amount]) => ({ member_id, amount, paid: member_id === data.payerId })),
     });
-  } catch (e) { throw rpcError(e); }
+  } catch (e) {
+    // ฐานข้อมูลยังเป็นฟังก์ชันเวอร์ชัน 003 ที่ห้ามแก้ยอดทุกกรณีเมื่อมีคนจ่ายแล้ว
+    if (/bill_has_payments/.test(e.message || '') && billHasPayments(bill) && data.payerId === bill.payer_member_id) {
+      throw new HttpError(503, 'db_outdated', 'ฐานข้อมูลยังไม่รองรับการแก้บิลหลังมีคนจ่าย ผู้ดูแลระบบกรุณารันไฟล์ supabase/migrations/004_edit_after_payment.sql ใน Supabase');
+    }
+    throw rpcError(e);
+  }
 
   publish(group.id, 'bill_updated', { billIds: [bill.id], message: `${me.display_name} แก้ไขบิล "${title}"` });
 
@@ -389,7 +400,9 @@ async function editBill(req, url, id) {
   if (financial && config.announceNewBill) {
     const byId = new Map(members.map((m) => [m.id, m]));
     const payer = byId.get(data.payerId);
-    const debtors = Object.entries(calc.shares).filter(([mid]) => mid !== data.payerId).map(([mid, amount]) => ({ member: byId.get(mid), amount }));
+    // แท็กเฉพาะคนที่ยังต้องจ่าย (คนที่จ่ายแล้วยอดเท่าเดิม)
+    const paidIds = new Set((bill.bill_shares || []).filter((s) => s.paid_at).map((s) => s.member_id));
+    const debtors = Object.entries(calc.shares).filter(([mid]) => mid !== data.payerId && !paidIds.has(mid)).map(([mid, amount]) => ({ member: byId.get(mid), amount }));
     try {
       await line.push(group.line_group_id, msg.newBillMessage({ id: bill.id, title, bill_date: data.date, total: calc.total }, payer.display_name, debtors, liffUrl(group.access_key), { edited: true }));
       announced = true;
