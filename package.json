@@ -9,5 +9,8 @@
     "build": "npm run build --prefix web",
     "start": "npm start --prefix server",
     "test": "npm test --prefix server"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10"
   }
 }

@@ -103,7 +103,7 @@ export default function NewBillPage({ onCreated, edit, onCancelEdit }: {
     const el = topRef.current;
     if (!el) return;
     const bar = document.querySelector('.topbar')?.getBoundingClientRect().height ?? 0;
-    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - bar - 8), behavior: 'smooth' });
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - bar - 24), behavior: 'smooth' });
   };
 
   // ---------- ใบเสร็จ + อ่านรายการอัตโนมัติ ----------

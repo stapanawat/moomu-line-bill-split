@@ -101,8 +101,9 @@ export function Field({ label, hint, error, children, className }: { label: stri
 
 export const Spinner = ({ small }: { small?: boolean }) => <span className={`spinner ${small ? 'spinner-sm' : ''}`} aria-label="กำลังโหลด" />;
 
+/** กำลังโหลด: ใช้โครงร่างรูปเดียวกับเนื้อหาจริงแทนวงกลมหมุน (elaya B9) */
 export function Loading({ text = 'กำลังโหลดข้อมูล' }: { text?: string }) {
-  return <div className="loading"><Spinner /><span>{text}</span></div>;
+  return <div className="loading-sk"><SkeletonRows rows={3} label={text} /><span className="sr-only">{text}</span></div>;
 }
 
 /** โครงร่างระหว่างโหลด: คงความสูงใกล้เคียงเนื้อหาจริง เพื่อไม่ให้หน้ากระโดด */
